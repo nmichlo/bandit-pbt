@@ -8,8 +8,9 @@ import math
 import os
 import random
 import shutil
-from typing import Dict
+from typing import Dict, Tuple, Iterator, List, Optional
 
+import numpy as np
 from ray.tune import TuneError
 from ray.tune.ray_trial_executor import RayTrialExecutor
 from ray.tune.result import TRAINING_ITERATION
@@ -26,7 +27,7 @@ logger = logging.getLogger(__name__)
 # ========================================================================== #
 
 
-class GeneralPbtTrialState(object):
+class TrialState(object):
     """Internal PBT state tracked per-trial."""
 
     def __init__(self, trial):
@@ -34,6 +35,8 @@ class GeneralPbtTrialState(object):
         self.last_score = None
         self.last_checkpoint = None
         self.last_perturbation_time = 0
+        self.num_explorations = 0
+        self.num_steps = 0
 
     def __str__(self):
         return str((self.last_score, self.last_checkpoint, self.last_perturbation_time))
@@ -42,14 +45,35 @@ class GeneralPbtTrialState(object):
         return str(self)
 
 
+TrialsStatesDict = Dict[Trial, TrialState]
+
+
 # ========================================================================== #
 # Exploit Mechanisms                                                         #
 # ========================================================================== #
 
 
 class Exploiter(object):
-    def exploit(self):
+
+    @staticmethod
+    def get_active_trials(trials_states_dict: TrialsStatesDict) -> List[Trial]:
+        trials = []
+        for trial, state in trials_states_dict.items():
+            if state.last_score is not None and not trial.is_finished():
+                trials.append(trial)
+        return trials
+
+    def exploit(self, pbt: 'GeneralPbt', trial: Trial, trials_states_dict: TrialsStatesDict) -> Tuple[List[Trial], List[Trial]]:
+        """
+        Returns trials in the lower and upper `quantile` of the population.
+        If there is not enough data to compute this, returns empty lists.
+        """
         raise NotImplementedError('Override Me')
+
+    def __str__(self):
+        return "({})".format(self.__class__.__name__)
+    def __repr__(self):
+        return str(self)
 
 
 class QuantileExploiter(Exploiter):
@@ -58,31 +82,76 @@ class QuantileExploiter(Exploiter):
     def __init__(self, quantile_fraction=0.25):
         if quantile_fraction > 0.5 or quantile_fraction < 0:
             raise TuneError("You must set `quantile_fraction` to a value between 0 and 0.5. Current value: '{}'".format(quantile_fraction))
-
         self._quantile_fraction = quantile_fraction
 
-    def exploit(self):
-        pass
-
-    def _quantiles(self, trial_state: GeneralPbtTrialState):
+    def exploit(self, pbt: 'GeneralPbt', trial: Trial, trials_states_dict: TrialsStatesDict) -> Tuple[List[Trial], List[Trial]]:
         """
         Returns trials in the lower and upper `quantile` of the population.
         If there is not enough data to compute this, returns empty lists.
         """
-
-        trials = []
-        for trial, state in trial_state.items():
-            if state.last_score is not None and not trial.is_finished():
-                trials.append(trial)
-        trials.sort(key=lambda t: trial_state[t].last_score)
+        trials = Exploiter.get_active_trials(trials_states_dict)
 
         if len(trials) <= 1:
             return [], []
-        else:
-            num_trials_in_quantile = int(math.ceil(len(trials) * self._quantile_fraction))
-            if num_trials_in_quantile > len(trials) / 2:
-                num_trials_in_quantile = int(math.floor(len(trials) / 2))
-            return trials[:num_trials_in_quantile], trials[-num_trials_in_quantile:]
+
+        # calculate scores
+        trials.sort(key=lambda t: trials_states_dict[t].last_score)
+
+        # split trials
+        num_trials_in_quantile = int(math.ceil(len(trials) * self._quantile_fraction))
+        if num_trials_in_quantile > len(trials) / 2:
+            num_trials_in_quantile = int(math.floor(len(trials) / 2))
+
+        return trials[:num_trials_in_quantile], trials[-num_trials_in_quantile:]
+
+    def __str__(self):
+        return "({}: quantile_fraction: {})".format(self.__class__.__name__, self._quantile_fraction)
+
+
+class UcbExploiter(Exploiter):
+    """Exploit function for PBT"""
+
+    def __init__(self):
+        self._max_score = float('-inf')
+
+    @staticmethod
+    def ucb1(X_i, n_i, n, C=1):
+        return X_i + C * np.sqrt(np.log2(n+1) / (n_i+1))
+
+    def exploit(self, pbt: 'GeneralPbt', trial: Trial, trials_states_dict: TrialsStatesDict) -> Tuple[List[Trial], List[Trial]]:
+        """
+        UCB extension of exploiting
+        """
+
+        trials = Exploiter.get_active_trials(trials_states_dict)
+
+        if len(trials) <= 1:
+            return [], []
+
+        # Update Max
+        self._max_score = max(self._max_score, trials_states_dict[trial].last_score)
+
+        # TODO: this shouldn't be average because of synchronisation
+        ave_steps = np.average([trials_states_dict[t].num_steps for t in trials])
+
+        probabilities = [UcbExploiter.ucb1(
+            X_i=s.last_score / self._max_score if self._max_score != 0 else 0,
+            n_i=s.num_steps,  # TODO: move out into Exploiter
+            n=ave_steps,  # TODO: move out into Exploiter
+            C=1
+        ) for t, s in zip(trials, (trials_states_dict[t] for t in trials))]
+
+        index = np.argmax(probabilities)
+        choice = trials[index]
+        del trials[index]
+
+        # choice = np.random.choice(trials, p=probabilities/np.sum(probabilities))
+        # trials.remove(choice)
+
+        return trials, [choice]
+
+    def __str__(self):
+        return "({}: max_score: {})".format(self.__class__.__name__, self._max_score)
 
 
 # ========================================================================== #
@@ -114,7 +183,7 @@ class GeneralPbt(FIFOScheduler):
         if not isinstance(exploiter, Exploiter):
             raise TuneError("`exploiter` must be an instance of type `Exploiter`")
 
-        super().__init__(self)
+        super().__init__()
 
         if hyperparam_mutations is None:
             hyperparam_mutations = {}
@@ -132,46 +201,53 @@ class GeneralPbt(FIFOScheduler):
 
         self._log_config = log_config
 
-        self._trial_states_dict: Dict[Trial, GeneralPbtTrialState] = {}
+        self._trials_states_dict: TrialsStatesDict = {}
 
         # Metrics
         self._num_checkpoints = 0
         self._num_explorations = 0
 
     def on_trial_add(self, trial_runner: TrialRunner, trial: Trial):
-        self._trial_states_dict[trial] = GeneralPbtTrialState(trial)
+        self._trials_states_dict[trial] = TrialState(trial)
 
     def on_trial_result(self, trial_runner: TrialRunner, trial: Trial, result: dict):
         time = result[self._explore_counter_attr]
-        state = self._trial_states_dict[trial]
+        state = self._trials_states_dict[trial]
 
+        # CHECK HOW LONG THE TRIAL HAS RUN FOR
         if time - state.last_perturbation_time < self._explore_counter_interval:
             return TrialScheduler.CONTINUE  # avoid checkpoint overhead
 
-        score = self._exploit_metric_sign * result[self._exploit_metric_attr]
-        state.last_score = score
+
+        # SET LAST STATE VALUES
+        state.last_score = self._exploit_metric_sign * result[self._exploit_metric_attr]  # negate if exploit_metric_mode="min"
         state.last_perturbation_time = time
+        state.num_steps += 1
 
-        lower_quantile, upper_quantile = self._quantiles()
+        # EXPLOIT FROM ALL THE OTHER TRAILS
+        lower_quantile, upper_quantile = self._exploiter.exploit(self, trial, self._trials_states_dict)
 
+        # TRAIL IS GOOD - SAVE
         if trial in upper_quantile:
             state.last_checkpoint = trial_runner.trial_executor.save(trial, Checkpoint.MEMORY)
             self._num_checkpoints += 1
         else:
             state.last_checkpoint = None  # not a top trial
 
+        # TRAIL IS BAD - REPLACE
         if trial in lower_quantile:
-            trial_to_clone = random.choice(upper_quantile)
-            assert trial is not trial_to_clone
-            self._exploit_trial(trial_runner.trial_executor, trial, trial_to_clone)
+            exploiting_trial = random.choice(upper_quantile)
+            assert trial is not exploiting_trial
+            self._exploit_trial(trial_runner.trial_executor, trial, exploiting_trial)
 
+        # IF ANOTHER TRIAL NEEDS TO BE RUN, PAUSE THIS ONE
         for trial in trial_runner.get_trials():
             if trial.status in [Trial.PENDING, Trial.PAUSED]:
                 return TrialScheduler.PAUSE  # yield time to other trials
 
         return TrialScheduler.CONTINUE
 
-    def _log_config_on_step(self, trial_state: GeneralPbtTrialState, new_state: GeneralPbtTrialState, trial: Trial, trial_to_clone: Trial, new_config: dict):
+    def _log_config_on_step(self, trial_state: TrialState, new_state: TrialState, trial: Trial, trial_to_clone: Trial, new_config: dict):
         # new_config is dict of hyper-params
 
         """
@@ -208,8 +284,8 @@ class GeneralPbt(FIFOScheduler):
         If specified, also logs the updated hyperparam state.
         """
 
-        trial_state = self._trial_states_dict[trial]
-        new_state = self._trial_states_dict[trial_to_clone]
+        trial_state = self._trials_states_dict[trial]
+        new_state = self._trials_states_dict[trial_to_clone]
         if not new_state.last_checkpoint:
             logger.info("[pbt]: no checkpoint for trial. Skip exploit for Trial {}".format(trial))
             return
@@ -230,6 +306,11 @@ class GeneralPbt(FIFOScheduler):
             trial.experiment_tag = new_tag
             trial_executor.start_trial(trial, Checkpoint.from_object(new_state.last_checkpoint))
 
+        # TODO: move to Exploiter
+        new_state.num_steps = 0
+        trial_state.num_steps = 0
+        new_state.num_explorations = 0
+        trial_state.num_explorations += 1
         self._num_explorations += 1
         # Transfer over the last perturbation time as well
         trial_state.last_perturbation_time = new_state.last_perturbation_time
@@ -245,7 +326,7 @@ class GeneralPbt(FIFOScheduler):
         for trial in trial_runner.get_trials():
             if trial.status in [Trial.PENDING, Trial.PAUSED] and trial_runner.has_resources(trial.resources):
                 candidates.append(trial)
-        candidates.sort(key=lambda trial: self._trial_states_dict[trial].last_perturbation_time)
+        candidates.sort(key=lambda trial: self._trials_states_dict[trial].last_perturbation_time)
         return candidates[0] if candidates else None
 
     def reset_stats(self):
@@ -255,7 +336,7 @@ class GeneralPbt(FIFOScheduler):
     def last_scores(self, trials):
         scores = []
         for trial in trials:
-            state = self._trial_states_dict[trial]
+            state = self._trials_states_dict[trial]
             if state.last_score is not None and not trial.is_finished():
                 scores.append(state.last_score)
         return scores
