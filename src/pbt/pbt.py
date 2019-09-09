@@ -21,6 +21,7 @@
 
 from typing import List, Iterator, NamedTuple, NoReturn, Optional
 import abc
+import numpy as np
 
 
 # ========================================================================= #
@@ -63,6 +64,10 @@ class IPopulation(abc.ABC):
                  but sorted in decreasing order of their score.
         """
         return sorted(self.members, key=lambda m: m.score, reverse=True)
+
+    @property
+    def scores(self):
+        return np.array([m.score for m in self.members])
 
     @property
     @abc.abstractmethod

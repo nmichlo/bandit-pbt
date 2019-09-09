@@ -24,10 +24,21 @@ import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
-from pbt.examples.simplex import SimplexNoise
 from pbt.strategies import ExploitUcb, ExploitTruncationSelection
 from pbt.pbt import Member, Population
 
+
+# def perturb(arr, shrink_factor, grow_factor):
+#     size = None
+#     try:
+#         size = arr.shape
+#     except:
+#         try:
+#             size = len(arr)
+#         except:
+#             pass
+#     ran = np.random.randint(0, 2) if (size is None) else np.random.randint(0, 2, size)
+#     return arr * (shrink_factor + ran * (grow_factor - shrink_factor))
 
 
 # ========================================================================= #
@@ -75,119 +86,79 @@ class ToyMember(Member):
         """perturb hyper-parameters with noise from a normal distribution"""
         s = population.options.get('exploration_scale', 0.1)
         return ToyHyperParams(
-            self._h.coef + np.random.normal(0, s, size=self._h.coef.shape),
-            self._h.alpha + np.random.normal(0, s),
+            np.clip(np.random.normal(self._h.coef, s), 0, 1),
+            np.clip(np.random.normal(self._h.alpha, s), 0, 1),
         )
 
 # ============================================================================ #
 # PLOTTING                                                                     #
 # ============================================================================ #
 
-options = None
 
+def make_subplots(h, w, figsize=None):
+    fig, axs = plt.subplots(h, w, figsize=figsize)
+    return fig, np.array(axs).reshape((h, w))
 
-def plot_performance(population, i, steps, title):
-    plt.subplot(2, 2, i)
-
+def plot_performance(ax, population, steps, title):
     for member, color in zip(population, 'brgcmyk'):
         vals = [step.p for step in member]
-        plt.plot(vals, color=color, lw=0.7)
+        ax.plot(vals, color=color, lw=0.7)
+    ax.axhline(y=1.2, linestyle='dotted', color='k')
+    ax.set(xlim=[0, steps-1], ylim=[-0.5, 1.31], title=title, xlabel='Step', ylabel='Q')
 
-    plt.axhline(y=1.2, linestyle='dotted', color='k')
-    axes = plt.gca()
-
-    axes.set_xlim([0, steps])
-    axes.set_ylim([0, 1.21])
-
-    plt.title(title)
-    plt.xlabel('Step')
-    plt.ylabel('Q')
-
-
-def plot_theta(population, i, steps, title):
-    plt.subplot(2, 2, i)
-
+def plot_theta(ax, population, steps, title):
     for member, color in zip(population, 'brgcmyk'):
-        x = np.array([step.theta[0] for step in member])
-        y = np.array([step.theta[1] for step in member])
+        x, y = np.array([step.theta[0] for step in member]), np.array([step.theta[1] for step in member])
         jumps = np.where([step.exploit_id is not None for step in member])[0]
+        x, y = np.insert(x, jumps, np.nan), np.insert(y, jumps, np.nan)
+        ax.plot(x, y, color=color, lw=0.5, zorder=1)
+        ax.scatter(x, y, color=color, s=1, zorder=2)
 
-        x = np.insert(x, jumps, np.nan)
-        y = np.insert(y, jumps, np.nan)
-        plt.plot(x, y, color=color, lw=0.5, zorder=1)
-        plt.scatter(x, y, color=color, s=1, zorder=2)
+    ax.set(xlim=[-0.1, 1], ylim=[-0.1, 1], title=title, xlabel='theta0', ylabel='theta1')
 
-    axes = plt.gca()
-    axes.set_xlim([0, 1])
-    axes.set_ylim([0, 1])
-
-    plt.title(title)
-    plt.xlabel('theta0')
-    plt.ylabel('theta1')
-
-
-def make_plot(idx, options, exploiter, steps=200, exploit=True, explore=True, title=None):
+def make_plot(ax_col, options, exploiter, steps=200, exploit=True, explore=True, title=None):
     population = Population([
-        ToyMember(ToyHyperParams(np.array([1., 0.]), 0.01), np.array([.9, .9])),
-        ToyMember(ToyHyperParams(np.array([0., 1.]), 0.01), np.array([.9, .9])),
+        ToyMember(ToyHyperParams(np.array([1., .0]), 0.01), np.array([.9, .9])),
+        ToyMember(ToyHyperParams(np.array([.0, 1.]), 0.01), np.array([.9, .9])),
+        # *[ToyMember(ToyHyperParams(np.array([1., np.random.rand()*0.5]), 0.01), np.array([.9, .9])) for i in range(2)],
+        # *[ToyMember(ToyHyperParams(np.array([np.random.rand()*0.5, 1.]), 0.01), np.array([.9, .9])) for i in range(2)],
     ], exploiter=exploiter, options=options)
 
     population.train(steps, exploit=exploit, explore=explore)
 
-    score = max(m.score for m in population)
+    scores = np.array([[h.p for h in m] for m in population])
+    firsts = np.argmax(scores > 1.18, axis=1)
+    firsts[firsts == 0] = scores.shape[1]
+    score = np.min(firsts)
 
-    # score = min(len(m) - sum(1 if h.p > 1.15 else 0 for h in m) for m in population)
-    # score = max(max(h.p for h in m) for m in population)
-    # print(f"{population.best.eval(population.options)}: {title} - {score}")
+    # score = np.min([np.argmax(np.array([h.p for h in m]) > 1.15) for m in population])
 
-    plot_theta(population, idx, steps=steps, title=title)
-    plot_performance(population, idx+2, steps=steps, title=title)
-
+    plot_theta(ax_col[0], population, steps=steps, title=title)
+    plot_performance(ax_col[1], population, steps=steps, title=title)
     return score
 
 
 if __name__ == '__main__':
 
     options = {
-        "steps": 100,
-        "steps_till_ready": 5,
+        "steps": 20,
+        "steps_till_ready": 3,
         "exploration_scale": 0.1,
     }
 
     # REPEAT EXPERIMENT N TIMES
     n, scores = 1, np.zeros(2)
-    for i in tqdm(range(n)):
-        scores[0] += make_plot(1, options, ExploitTruncationSelection(), steps=options["steps"], exploit=False, explore=True, title='PBT Trunc Sel')
-        scores[1] += make_plot(2, options, ExploitUcb(),                 steps=options["steps"], exploit=False, explore=True, title='PBT Ucb Sel')
-        # print()
+    fig, axs = make_subplots(2, len(scores))
+
+    with tqdm(range(n)) as itr:
+        for i in itr:
+            scores[0] += make_plot(axs[:, 0], options, ExploitTruncationSelection(), steps=options["steps"], exploit=True, explore=True, title='PBT Trunc Sel')
+            scores[1] += make_plot(axs[:, 1], options, ExploitUcb(),                 steps=options["steps"], exploit=True, explore=True, title='PBT Ucb Sel')
+            itr.set_description(f'{np.around(scores / (i + 1), 2)}')
     scores /= n
 
     print('T: {}, U: {}'.format(*scores))
 
-    plt.show()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    fig.show()
 
 
