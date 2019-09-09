@@ -18,8 +18,6 @@
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
 
-
-import random
 from typing import NamedTuple
 
 import numpy as np
@@ -27,17 +25,25 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 
 from pbt.examples.simplex import SimplexNoise
+from pbt.strategies import ExploitUcb, ExploitTruncationSelection
 from pbt.pbt import Member, Population
 
 
-# ============================================================================ #
-# SYSTEM                                                                       #
-# ============================================================================ #
+
+# ========================================================================= #
+# SYSTEM                                                                    #
+# ========================================================================= #
+
 
 
 class ToyHyperParams(NamedTuple):
     coef: np.ndarray
     alpha: float
+
+
+# ========================================================================= #
+# Member - TOY                                                              #
+# ========================================================================= #
 
 
 class ToyMember(Member):
@@ -55,7 +61,7 @@ class ToyMember(Member):
         return np.copy(self._theta)
 
     def _is_ready(self, population: 'Population') -> bool:
-        return (self._t % population.options.get('steps_till_ready', 4) == 0) and (self != max(population, key=lambda m: m._p))
+        return self._t % population.options.get('steps_till_ready', 4) == 0  # and (self != max(population, key=lambda m: m._p))
 
     def _step(self, options: dict) -> np.ndarray:
         dtheta = -2 * self._h.coef * self._theta
@@ -65,109 +71,13 @@ class ToyMember(Member):
     def _eval(self, options: dict) -> float:
         return 1.2 - np.dot(self._theta, self._theta)
 
-    def _exploit(self, population: 'Population') -> 'ToyMember':
-        return max(population, key=lambda m: m._p)
-
     def _explore(self, population: 'Population') -> ToyHyperParams:
         """perturb hyper-parameters with noise from a normal distribution"""
         s = population.options.get('exploration_scale', 0.1)
         return ToyHyperParams(
-            self._h.coef + np.random.randn(*self._h.coef.shape) * s,
-            # self._h.alpha,
-            abs(self._h.alpha + np.random.randn() * s),
+            self._h.coef + np.random.normal(0, s, size=self._h.coef.shape),
+            self._h.alpha + np.random.normal(0, s),
         )
-
-
-class ToyMemberQuantile(ToyMember):
-
-    def __init__(self, *args, quantile=0.2, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._quantile=quantile
-
-    def _exploit(self, population: 'Population') -> 'ToyMember':
-        scored = sorted(population, key=lambda m: m._p, reverse=True)
-        top = max(1, self._quantile * len(scored))
-        return random.choice(scored[:top])
-
-
-def ucb1(X_i, n_i, n, C=1):
-    return X_i + C * np.sqrt(np.log2(n) / n_i)
-
-
-class ToyMemberUcb(ToyMember):
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._step_count = 0
-
-    def _step(self, options: dict) -> np.ndarray:
-        self._step_count += 1
-        return super()._step(options)
-
-    def _explore(self, population: 'Population') -> ToyHyperParams:
-        self._step_count = 0
-        return super()._explore(population)
-
-    def _exploit(self, population: 'Population') -> 'ToyMember':
-        max_score = population.options.setdefault('max_score', float('-inf'))
-        if self._p > max_score:
-            max_score = self._p
-            population.options['max_score'] = self._p
-
-        total_steps = max(m._step_count for m in population) * len(population)
-
-        scores = np.array([ucb1(
-            X_i=m._p / abs(max_score) if max_score else 0,
-            n_i=(m._step_count + 1),
-            n=(total_steps + 1),
-            C=0.1
-        ) for m in population])
-
-        scores[scores < 0] = 0
-        scores = np.nan_to_num(scores)
-        if sum(scores) == 0:
-            scores[:] = 1
-
-        print(scores)
-
-        index = np.argmax(scores)
-        choice = population[index]
-
-        # TODO: should it not be this?
-        choice = np.random.choice(range(len(population)), p=scores/np.sum(scores))
-        choice = population[choice]
-        # trials.remove(choice)
-
-        self._step_count = 0
-        choice._step_count = 0
-
-        return choice
-
-
-N = 10
-NOISE = SimplexNoise(N)
-
-
-class SimplexMember(ToyMemberUcb):
-
-    def copy_h(self) -> np.ndarray:
-        return np.copy(self._h)
-
-    def copy_theta(self) -> np.ndarray:
-        return np.copy(self._theta)
-
-    def _step(self, options: dict) -> np.ndarray:
-        # self._theta += self._h * 0.001
-        return self._theta
-
-    def _eval(self, options: dict) -> float:
-        return abs(NOISE.simplexNoise(list(self._h)))
-
-    def _explore(self, population: 'Population') -> ToyHyperParams:
-        """perturb hyper-parameters with noise from a normal distribution"""
-        s = population.options.get('exploration_scale', 0.1)
-        return self._h + (np.random.random(N) * np.random.randint(0, 2, N) * np.random.randint(0, 2, N)) * s
-
 
 # ============================================================================ #
 # PLOTTING                                                                     #
@@ -177,7 +87,7 @@ options = None
 
 
 def plot_performance(population, i, steps, title):
-    plt.subplot(2, 4, i)
+    plt.subplot(2, 2, i)
 
     for member, color in zip(population, 'brgcmyk'):
         vals = [step.p for step in member]
@@ -185,8 +95,9 @@ def plot_performance(population, i, steps, title):
 
     plt.axhline(y=1.2, linestyle='dotted', color='k')
     axes = plt.gca()
+
     axes.set_xlim([0, steps])
-    axes.set_ylim([0.0, 1.21])
+    axes.set_ylim([0, 1.21])
 
     plt.title(title)
     plt.xlabel('Step')
@@ -194,16 +105,17 @@ def plot_performance(population, i, steps, title):
 
 
 def plot_theta(population, i, steps, title):
-    plt.subplot(2, 4, i)
+    plt.subplot(2, 2, i)
 
     for member, color in zip(population, 'brgcmyk'):
-        x = [step.theta[0] for step in member]
-        y = [step.theta[1] for step in member]
+        x = np.array([step.theta[0] for step in member])
+        y = np.array([step.theta[1] for step in member])
+        jumps = np.where([step.exploit_id is not None for step in member])[0]
 
-        # x = np.convolve(x, np.ones(5) / 5)
-        # y = np.convolve(y, np.ones(5) / 5)
-
-        plt.scatter(x, y, color=color, s=0.25)
+        x = np.insert(x, jumps, np.nan)
+        y = np.insert(y, jumps, np.nan)
+        plt.plot(x, y, color=color, lw=0.5, zorder=1)
+        plt.scatter(x, y, color=color, s=1, zorder=2)
 
     axes = plt.gca()
     axes.set_xlim([0, 1])
@@ -214,23 +126,22 @@ def plot_theta(population, i, steps, title):
     plt.ylabel('theta1')
 
 
-def make_plot(idx, steps=200, exploit=True, explore=True, title=None, clazz=ToyMemberUcb):
+def make_plot(idx, options, exploiter, steps=200, exploit=True, explore=True, title=None):
     population = Population([
-        clazz(ToyHyperParams(np.array([0., 1.]), 0.01), np.array([.9, .9])),
-        clazz(ToyHyperParams(np.array([1., 0.]), 0.01), np.array([.9, .9])),
-        clazz(ToyHyperParams(np.array([0., 1.]), 0.02), np.array([.9, .9])),
-        # clazz(ToyHyperParams(np.array([1., 0.]), 0.02), np.array([.9, .9])),
-        # clazz(ToyHyperParams(np.array([0., 1.]), 0.02), np.array([.9, .9])),
-        # clazz(ToyHyperParams(np.array([1., 0.]), 0.02), np.array([.9, .9])),
-    ], options).train(steps, exploit=exploit, explore=explore)
+        ToyMember(ToyHyperParams(np.array([1., 0.]), 0.01), np.array([.9, .9])),
+        ToyMember(ToyHyperParams(np.array([0., 1.]), 0.01), np.array([.9, .9])),
+    ], exploiter=exploiter, options=options)
 
+    population.train(steps, exploit=exploit, explore=explore)
 
-    score = min(len(m) - sum(1 if h.p > 1.15 else 0 for h in m) for m in population)
+    score = max(m.score for m in population)
+
+    # score = min(len(m) - sum(1 if h.p > 1.15 else 0 for h in m) for m in population)
     # score = max(max(h.p for h in m) for m in population)
-    print(f"{population.best.eval(population.options)}: {title} - {score}")
+    # print(f"{population.best.eval(population.options)}: {title} - {score}")
 
     plot_theta(population, idx, steps=steps, title=title)
-    plot_performance(population, idx+4, steps=steps, title=title)
+    plot_performance(population, idx+2, steps=steps, title=title)
 
     return score
 
@@ -243,18 +154,40 @@ if __name__ == '__main__':
         "exploration_scale": 0.1,
     }
 
-    n, a, b, c = 100, 0, 0, 0
+    # REPEAT EXPERIMENT N TIMES
+    n, scores = 1, np.zeros(2)
     for i in tqdm(range(n)):
-        a += make_plot(1, steps=options["steps"], exploit=True, explore=True, clazz=ToyMemberUcb, title='PBT UCB')
-        b += make_plot(2, steps=options["steps"], exploit=True, explore=True, clazz=ToyMemberQuantile, title='PBT Quantile')
-        c += make_plot(3, steps=options["steps"], exploit=True, explore=True, clazz=ToyMember, title='PBT Toy')
-        print()
-    nums = np.array([a, b, c]) / n
-    a, b, c = nums # - np.max(nums)
+        scores[0] += make_plot(1, options, ExploitTruncationSelection(), steps=options["steps"], exploit=False, explore=True, title='PBT Trunc Sel')
+        scores[1] += make_plot(2, options, ExploitUcb(),                 steps=options["steps"], exploit=False, explore=True, title='PBT Ucb Sel')
+        # print()
+    scores /= n
 
-    print('U: {}, Q: {}, T: {}'.format(a, b, c))
-
-
-    # make_plot(4, steps=options["steps"], exploit=False, explore=False, clazz=ToyMemberUcb, title='Grid Search')
+    print('T: {}, U: {}'.format(*scores))
 
     plt.show()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

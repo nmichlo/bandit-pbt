@@ -251,3 +251,48 @@ def sortWith(l1, l2):
 #     getter = lambda y, x: noise.simplexNoise([y, x, 0, 0])
 #
 #     print_grid(getter, -1, -1, 0.1, 100)
+
+
+
+
+
+# ========================================================================= #
+# Member - Simplex                                                          #
+# ========================================================================= #
+
+# N = 3
+# NOISE = SimplexNoise(N)
+#
+# class SimplexMember(Member):
+#
+#     def __init__(self):
+#         h = np.random.normal(0, 0.1, N)
+#         theta = np.zeros((2, N))
+#         theta[1] = (np.random.rand(N) - 0.5) * 2
+#         super().__init__(h, theta)
+#
+#     def copy_h(self) -> np.ndarray:
+#         return np.copy(self._h)
+#
+#     def copy_theta(self) -> np.ndarray:
+#         return np.copy(self._theta)
+#
+#     def _is_ready(self, population: 'Population') -> bool:
+#         return self._t % population.options.get('steps_till_ready', 4) == 0
+#
+#     def _step(self, options: dict) -> np.ndarray:
+#         theta = self.copy_theta()
+#         theta[0] = np.clip(theta[0] + self._h * 0.1, -1, 1)
+#         theta[1] = np.clip(theta[1] + theta[0] * 0.01, -1, 1)
+#         return theta
+#
+#     def _eval(self, options: dict) -> float:
+#         # return np.dot(self._h, self._theta)
+#         # return np.sum(self._theta[1] * self._h)
+#         return abs(NOISE.simplexNoise(list(self._theta[1])))
+#
+#     def _explore(self, population: 'Population') -> ToyHyperParams:
+#         """perturb hyper-parameters with noise from a normal distribution"""
+#         s = population.options.get('exploration_scale', 0.1)
+#         return np.clip(self._h + np.random.normal(0, s, N), -1, 1)
+

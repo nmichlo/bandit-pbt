@@ -19,8 +19,13 @@
 #  SOFTWARE.
 
 
-from typing import List, Iterator, NamedTuple, NoReturn
+from typing import List, Iterator, NamedTuple, NoReturn, Optional
 import abc
+
+
+# ========================================================================= #
+# Population                                                                #
+# ========================================================================= #
 
 
 class IPopulation(abc.ABC):
@@ -31,7 +36,7 @@ class IPopulation(abc.ABC):
     """
 
     @property
-    def best(self):
+    def best(self) -> 'IMember':
         return max(self.members, key=lambda m: m.eval(self.options))
 
     def __getitem__(self, item) -> 'IMember':
@@ -52,11 +57,27 @@ class IPopulation(abc.ABC):
         pass
 
     @property
+    def members_sorted(self):
+        """
+        :return: The list of members belonging to the population,
+                 but sorted in decreasing order of their score.
+        """
+        return sorted(self.members, key=lambda m: m.score, reverse=True)
+
+    @property
     @abc.abstractmethod
     def options(self) -> dict:
         """
         Used to pass data to IMembers.
         :return: The ditionary of options set for the population.
+        """
+        pass
+
+    @property
+    @abc.abstractmethod
+    def exploiter(self) -> 'IExploiter':
+        """
+        :return: The exploiter.
         """
         pass
 
@@ -69,7 +90,7 @@ class IPopulation(abc.ABC):
         :param n: Number of training steps to perform for each member.
         :param exploit: Do the exploit phase.
         :param explore: Do the explore phase.
-        :return: The member with the best score/performance after training.
+        :return: The member with the best score/score after training.
         """
         pass
 
@@ -80,24 +101,32 @@ class Population(IPopulation):
     Use the options to pass data to members.
     """
 
-    def __init__(self, members, options=None):
+    def __init__(self, members, exploiter, options=None):
         self._members = members
         if len(members) < 1:
             raise RuntimeError('Population must have at least one member')
 
+        if options is None:
+            options = {}
         self._options = options
-        if self._options is None:
-            self._options = {}
+
+        assert isinstance(exploiter, IExploiter)
+        self._exploiter = exploiter
 
     @property
     def members(self) -> List['IMember']:
-        return self._members
+        # returns a shallow copy
+        return self._members[:]
 
     @property
     def options(self) -> dict:
         return self._options
 
-    def train(self, n=None, exploit=True, explore=True) -> 'Population':
+    @property
+    def exploiter(self) -> 'IExploiter':
+        return self._exploiter
+
+    def train(self, n=None, exploit=True, explore=True) -> 'IPopulation':
         """
         Based on:
         + The original paper
@@ -106,7 +135,7 @@ class Population(IPopulation):
         :param n: Number of training steps to perform for each member.
         :param exploit: Do the exploit phase.
         :param explore: Do the explore phase.
-        :return: The member with the best score/performance after training.
+        :return: The member with the best score/score after training.
         """
 
         if n is None:
@@ -117,25 +146,57 @@ class Population(IPopulation):
             for idx, member in enumerate(self.members):  # should be async
 
                 # one step of optimisation using hyper-parameters h
-                member.step(options=self.options)
+                self._step(member)
                 # current model evaluation
-                member.eval(options=self.options)
+                self._eval(member)
 
-                if member.is_ready(self):
+                if self._is_ready(member):
+                    do_explore = explore
+
                     if exploit:
                         # replace the member using the rest of population to find a better solution
-                        member.exploit(self)
-                    if explore:
+                        exploited = self._exploit(member)
+                        # only explore if we exploited
+                        do_explore = do_explore and exploited
+
+                    if do_explore:
                         # produce new hyper-parameters h and update member
-                        member.explore(self)
+                        self._explore(member)
                         # new model evaluation
-                        member.eval(options=self.options)
+                        self._eval(member)
 
                 # update population
                 # TODO: needed for async operations
                 # self._update(idx, member)
 
         return self
+
+    def _step(self, member) -> NoReturn:
+        member.step(self.options)
+        self.exploiter._member_on_step(member)
+
+    def _eval(self, member) -> NoReturn:
+        member.eval(options=self.options)
+
+    def _is_ready(self, member) -> bool:
+        return member.is_ready(self)
+
+    def _exploit(self, member) -> bool:
+        exploited = member.exploit(self)
+        self.exploiter._member_on_exploited(member)
+        return exploited
+
+    def _explore(self, member) -> bool:
+        explored = member.explore(self)
+        self.exploiter._member_on_explored(member)
+        return explored
+
+
+
+
+# ========================================================================= #
+# History                                                                   #
+# ========================================================================= #
 
 
 class HistoryItem(NamedTuple):
@@ -147,10 +208,17 @@ class HistoryItem(NamedTuple):
     h: object
     """ parameters """
     theta: object
-    """ performance """
+    """ score """
     p: float
     """ step number """
     t: int
+    """ is exploited """
+    exploit_id: Optional[int]
+
+
+# ========================================================================= #
+# Member                                                                    #
+# ========================================================================= #
 
 
 class IMember(abc.ABC):
@@ -162,6 +230,20 @@ class IMember(abc.ABC):
     Members remember their history of updates.
     """
 
+    @abc.abstractmethod
+    def copy_h(self) -> object:
+        """
+        :return: A deepcopy of the members hyper-parameters (h)
+        """
+        pass
+
+    @abc.abstractmethod
+    def copy_theta(self) -> object:
+        """
+        :return: A deepcopy of the members parameters (theta)
+        """
+        pass
+    
     @property
     @abc.abstractmethod
     def history(self) -> List['HistoryItem']:
@@ -189,14 +271,22 @@ class IMember(abc.ABC):
     @abc.abstractmethod
     def eval(self, options: dict) -> float:
         """
-        Evaluate the performance of the underlying machine learning algorithm.
+        Evaluate the score of the underlying machine learning algorithm.
         :param options: A dictionary of options set for the population, values not guaranteed to exist.
-        :return: A float value indicating the current performance.
+        :return: A float value indicating the current score.
+        """
+        pass
+
+    @property
+    @abc.abstractmethod
+    def score(self):
+        """
+        :return: The score from the last evaluation
         """
         pass
 
     @abc.abstractmethod
-    def is_ready(self, population: 'Population') -> bool:
+    def is_ready(self, population: 'IPopulation') -> bool:
         """
         :param population: The population that this member belongs to.
         :return: True if this member is ready for the exploit/explore stage.
@@ -204,7 +294,7 @@ class IMember(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def exploit(self, population: 'Population') -> bool:
+    def exploit(self, population: 'IPopulation') -> bool:
         """
         Update the parameters (theta) of this member with those of
         another member, using various selection strategies.
@@ -214,7 +304,7 @@ class IMember(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def explore(self, population: 'Population') -> bool:
+    def explore(self, population: 'IPopulation') -> bool:
         """
         Update the hyper-parameters (h) of this member using various
         approaches or perturbation strategies.
@@ -228,7 +318,7 @@ class Member(IMember):
     """
     Basic implementation of member, implementing the common functionality
     required by the PBT algorithm, and most subclasses. Can handle any data
-    type for the parameters and hyper-parameters. Only evaluates the performance
+    type for the parameters and hyper-parameters. Only evaluates the score
     once per step using caching.
 
     Provides simplified abstract methods that need to be overridden.
@@ -242,12 +332,13 @@ class Member(IMember):
         # check hyper-parameters and parameters are valid.
         if (self._h is None) or (self._theta is None):
             raise RuntimeError('hyper-parameters and parameters must be set')
-        # current performance, also known as 'Q'
+        # current score, also known as 'Q'
         self._p = p
         # current step
         self._t = t
-        # should the performance value be recalculated
+        # should the score value be recalculated
         self._recal = False
+        self._exploited = None
         # other vars
         self._history = []
 
@@ -261,63 +352,55 @@ class Member(IMember):
 
     def step(self, options: dict):
         # append to member's history.
-        self._history.append(HistoryItem(self.copy_h(), self.copy_theta(), self._p, self._t))
+        self._history.append(HistoryItem(self.copy_h(), self.copy_theta(), self._p, self._t, self._exploited))
+        self._exploited = None
         # update the parameters of the member.
         self._theta = self._step(options)
-        # indicate that the performance score should be recalculated.
+        # indicate that the score score should be recalculated.
         self._recal = True
         # increment step counter
         self._t += 1
         return self._t
 
     def eval(self, options: dict):
-        # only recalculate performance score if necessary
+        # only recalculate score score if necessary
         if self._recal:
             self._p = self._eval(options)
             self._recal = False
         return self._p
 
-    def is_ready(self, population: 'Population') -> bool:
+    @property
+    def score(self):
+        return self._p
+
+    def is_ready(self, population: 'IPopulation') -> bool:
         return self._is_ready(population)
 
-    def exploit(self, population: 'Population') -> bool:
-        member = self._exploit(population)
+    def exploit(self, population: 'IPopulation') -> bool:
+        member = population.exploiter.exploit(population, self)
         # only use the exploited member's parameters if it is not the same.
         if member is not None:
             if self != member:
                 self._theta = member.copy_theta()
+                self._exploited = population.members.index(member)
                 return True
             else:
-                print("Member exploited itself, problem with exploitation strategy?")
+                print(f"Member exploited itself, problem with exploiter? {type(population.exploiter).__name__}")
                 return False
         return False
 
-    def explore(self, population: 'Population') -> bool:
+    def explore(self, population: 'IPopulation') -> bool:
         exploring_h = self._explore(population)
         # only use the explored hyper-parameters if they are valid.
         if exploring_h is not None:
             self._h = exploring_h
             return True
         else:
-            print("Explore values are None, problem with exploration strategy?")
+            print("Explore values are None, problem with exploration exploiter?")
             return False
 
     @abc.abstractmethod
-    def copy_h(self) -> object:
-        """
-        :return: A deepcopy of the members hyper-parameters
-        """
-        pass
-
-    @abc.abstractmethod
-    def copy_theta(self) -> object:
-        """
-        :return: A deepcopy of the members parameters
-        """
-        pass
-
-    @abc.abstractmethod
-    def _is_ready(self, population: 'Population') -> bool:
+    def _is_ready(self, population: 'IPopulation') -> bool:
         """
         :param population: The population that this member belongs to.
         :return: True if this member is ready for the exploit/explore stage.
@@ -336,22 +419,44 @@ class Member(IMember):
     def _eval(self, options: dict) -> float:
         """
         :param options: A dictionary of options set for the population, values not guaranteed to exist.
-        :return: A float value indicating the current performance, used by self.eval().
+        :return: A float value indicating the current score, used by self.eval().
         """
         pass
 
     @abc.abstractmethod
-    def _exploit(self, population: 'Population') -> 'Member':
-        """
-        :param population: The population that this member belongs to.
-        :return The member to be exploited, used by self.exploit().
-        """
-        pass
-
-    @abc.abstractmethod
-    def _explore(self, population: 'Population') -> bool:
+    def _explore(self, population: 'IPopulation') -> bool:
         """
         :param population: The population that this member belongs to.
         :return: Updated hyper-parameters, used by self.explore().
         """
         pass
+
+
+# ========================================================================= #
+# Exploiter                                                                  #
+# ========================================================================= #
+
+
+class IExploiter(abc.ABC):
+
+    @abc.abstractmethod
+    def exploit(self, population: 'IPopulation', member: 'IMember') -> Optional['IMember']:
+        """
+        :param population: The population that this member belongs to.
+        :param member: The current member requiring exploitation.
+        :return The member to be exploited, used by self.exploit().
+        """
+        pass
+
+    def _member_on_step(self, member) -> NoReturn:
+        pass
+
+    def _member_on_explored(self, member) -> NoReturn:
+        pass
+
+    def _member_on_exploited(self, member) -> NoReturn:
+        pass
+
+
+class Exploiter(IExploiter):
+    pass
