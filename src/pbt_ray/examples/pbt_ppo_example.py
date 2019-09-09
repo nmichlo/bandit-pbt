@@ -44,20 +44,23 @@ if __name__ == "__main__":
             "sgd_minibatch_size": lambda: random.randint(128, 16384),
             "train_batch_size": lambda: random.randint(2000, 160000),
         },
-        custom_explore_fn=explore)
+        custom_explore_fn=explore
+    )
 
     ray.init()
+
     run(
         "PPO",
         name="pbt_humanoid_test",
         scheduler=pbt,
         **{
-            "env": "Humanoid-v1",
             "num_samples": 8,
             "config": {
+                "env": "Humanoid-v2",
                 "kl_coeff": 1.0,
-                "num_workers": 8,
+                "num_workers": 1,
                 "num_gpus": 1,
+                # "num_cpus": 1,
                 "model": {
                     "free_log_std": True
                 },
@@ -66,11 +69,9 @@ if __name__ == "__main__":
                 "clip_param": 0.2,
                 "lr": 1e-4,
                 # These params start off randomly drawn from a set.
-                "num_sgd_iter": sample_from(
-                    lambda spec: random.choice([10, 20, 30])),
-                "sgd_minibatch_size": sample_from(
-                    lambda spec: random.choice([128, 512, 2048])),
-                "train_batch_size": sample_from(
-                    lambda spec: random.choice([10000, 20000, 40000]))
+                "num_sgd_iter": sample_from(lambda spec: random.choice([10, 20, 30])),
+                "sgd_minibatch_size": sample_from(lambda spec: random.choice([128, 512, 2048])),
+                "train_batch_size": sample_from(lambda spec: random.choice([10000, 20000, 40000])),
+                "vf_share_layers": True,
             },
         })

@@ -145,6 +145,7 @@ class UcbExploiter(Exploiter):
         choice = trials[index]
         del trials[index]
 
+        # TODO: should it not be this?
         # choice = np.random.choice(trials, p=probabilities/np.sum(probabilities))
         # trials.remove(choice)
 

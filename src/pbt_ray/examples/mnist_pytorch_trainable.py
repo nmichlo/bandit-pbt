@@ -8,15 +8,19 @@ from __future__ import print_function
 
 import argparse
 import os
+from random import random
+
 import torch
 import torch.optim as optim
 
 import ray
 from ray import tune
-from ray.tune.schedulers import ASHAScheduler
-from ray.tune.examples.mnist_pytorch import (train, test, get_data_loaders, ConvNet)
+from ray.tune import ExperimentAnalysis
+from ray.tune.schedulers import ASHAScheduler, PopulationBasedTraining
 
 # Change these values if you want the training to run quicker or slower.
+from examples.mnist_pytorch import (train, test, get_data_loaders, ConvNet)
+
 EPOCH_SIZE = 512
 TEST_SIZE = 256
 
@@ -25,7 +29,7 @@ parser = argparse.ArgumentParser(description="PyTorch MNIST Example")
 parser.add_argument(
     "--use-gpu",
     action="store_true",
-    default=False,
+    default=True,
     help="enables CUDA training")
 parser.add_argument(
     "--ray-redis-address", type=str, help="The Redis address of the cluster.")
@@ -69,27 +73,63 @@ class TrainMNIST(tune.Trainable):
 if __name__ == "__main__":
     args = parser.parse_args()
     ray.init(redis_address=args.ray_redis_address)
+
+
     sched = ASHAScheduler(metric="mean_accuracy")
+
+    # sched = PopulationBasedTraining(
+    #     time_attr="training_iteration",
+    #     metric="mean_accuracy",
+    #     mode="max",
+    #     perturbation_interval=20,
+    #     hyperparam_mutations={
+    #         "lr": lambda: random.uniform(0.0001, 0.02),
+    #         "momentum": lambda: random.uniform(0.99, 0.01),
+    #     }
+    # )
+
     analysis = tune.run(
         TrainMNIST,
         scheduler=sched,
-        **{
-            "stop": {
-                "mean_accuracy": 0.95,
-                "training_iteration": 3 if args.smoke_test else 20,
-            },
-            "resources_per_trial": {
-                "cpu": 3,
-                "gpu": int(args.use_gpu)
-            },
-            "num_samples": 1 if args.smoke_test else 20,
-            "checkpoint_at_end": True,
-            "checkpoint_freq": 3,
-            "config": {
-                "args": args,
-                "lr": tune.uniform(0.001, 0.1),
-                "momentum": tune.uniform(0.1, 0.9),
-            }
-        })
+        # args
+        stop=dict(
+            mean_accuracy=0.99,
+            training_iteration=5,
+        ),
+        resources_per_trial=dict(
+            cpu=3,
+            gpu=int(args.use_gpu)
+        ),
+        num_samples=2,
+        checkpoint_at_end=True,
+        checkpoint_freq=3,
+        config=dict(
+            args=args,
+            lr=tune.uniform(0.001, 0.1),
+            momentum=tune.uniform(0.1, 0.9),
+        )
+    )
+
+    dfs = analysis.get_all_configs()
+    print(dfs)
+    # This plots everything on the same plot
+    # ax = None
+    # for d in dfs.values():
+    #     ax = d.plot("timestamp", "mean_accuracy", ax=ax, legend=False)
+
+    # while True:
+    # try:
+        # print('A', analysis.trial_dataframes)
+    # for obj in analysis.fetch_trial_dataframes():
+    #     print('OBJ1', obj)
+    #
+    # for obj in analysis.trails:
+    #     print('OBJ2', obj)
+
+        # ax = None
+        # for df in analysis.trial_dataframes:
+            # ax = df.mean_accuracy.plot(ax=ax, legend=False)
+    # except:
+    #     pass
 
     print("Best config is:", analysis.get_best_config(metric="mean_accuracy"))

@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# https://github.com/ray-project/ray/blob/master/python/ray/tune/examples/pbt_example.py
 
 from __future__ import absolute_import
 from __future__ import division
@@ -11,7 +10,9 @@ import random
 
 import ray
 from ray.tune import Trainable, run
-from ray.tune.schedulers import PopulationBasedTraining
+from ray.tune.schedulers import PopulationBasedTraining, ASHAScheduler
+
+from ray_general_pbt import GeneralPbt, UcbExploiter
 
 
 class PBTBenchmarkExample(Trainable):
@@ -82,20 +83,14 @@ class PBTBenchmarkExample(Trainable):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--smoke-test", action="store_true", help="Finish quickly for testing")
-    args, _ = parser.parse_known_args()
-    if args.smoke_test:
-        ray.init(num_cpus=2)  # force pausing to happen for test
-    else:
-        ray.init()
+    ray.init()
 
-    pbt = PopulationBasedTraining(
-        time_attr="training_iteration",
-        metric="mean_accuracy",
-        mode="max",
-        perturbation_interval=20,
+
+    pbt = GeneralPbt(
+        exploit_metric_attr="mean_accuracy",
+        exploit_metric_mode="max",
+        explore_counter_attr="training_iteration",
+        explore_counter_interval=20,
         hyperparam_mutations={
             # distribution for resampling
             "lr": lambda: random.uniform(0.0001, 0.02),
@@ -103,7 +98,7 @@ if __name__ == "__main__":
             "some_other_factor": [1, 2],
         })
 
-    run(
+    analisys2 = run(
         PBTBenchmarkExample,
         name="pbt_test",
         scheduler=pbt,
@@ -121,3 +116,24 @@ if __name__ == "__main__":
                 "some_other_factor": 1,
             },
         })
+
+    print()
+    print('=' * 100)
+    print()
+
+    import matplotlib.pyplot as plt
+
+    def gen_fig(attr):
+        ax = None
+        for t, df in analisys2.trial_dataframes.items():
+            ax = df[attr].plot(ax=ax, legend=False)
+        ax.figure.savefig('plot.{}.png'.format(attr))
+
+    gen_fig('cur_lr')
+    gen_fig('mean_accuracy')
+    # gen_fig('training_iteration')
+
+    print()
+    print('=' * 100)
+    print('Done! Ignore The Following Error:')
+    print('=' * 100)
