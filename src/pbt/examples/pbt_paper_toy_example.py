@@ -18,6 +18,7 @@
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
 
+
 from typing import NamedTuple
 
 import numpy as np
@@ -28,23 +29,9 @@ from pbt.strategies import ExploitUcb, ExploitTruncationSelection
 from pbt.pbt import Member, Population
 
 
-# def perturb(arr, shrink_factor, grow_factor):
-#     size = None
-#     try:
-#         size = arr.shape
-#     except:
-#         try:
-#             size = len(arr)
-#         except:
-#             pass
-#     ran = np.random.randint(0, 2) if (size is None) else np.random.randint(0, 2, size)
-#     return arr * (shrink_factor + ran * (grow_factor - shrink_factor))
-
-
 # ========================================================================= #
 # SYSTEM                                                                    #
 # ========================================================================= #
-
 
 
 class ToyHyperParams(NamedTuple):
@@ -120,45 +107,48 @@ def make_plot(ax_col, options, exploiter, steps=200, exploit=True, explore=True,
     population = Population([
         ToyMember(ToyHyperParams(np.array([1., .0]), 0.01), np.array([.9, .9])),
         ToyMember(ToyHyperParams(np.array([.0, 1.]), 0.01), np.array([.9, .9])),
-        # *[ToyMember(ToyHyperParams(np.array([1., np.random.rand()*0.5]), 0.01), np.array([.9, .9])) for i in range(2)],
-        # *[ToyMember(ToyHyperParams(np.array([np.random.rand()*0.5, 1.]), 0.01), np.array([.9, .9])) for i in range(2)],
+        *[ToyMember(ToyHyperParams(np.array([1., np.random.rand()*0.5]), 0.01), np.array([.9, .9])) for i in range(4)],
+        *[ToyMember(ToyHyperParams(np.array([np.random.rand()*0.5, 1.]), 0.01), np.array([.9, .9])) for i in range(4)],
     ], exploiter=exploiter, options=options)
 
     population.train(steps, exploit=exploit, explore=explore)
 
+    # Calculates the score as the index of the first occurrence greater than 1.18
     scores = np.array([[h.p for h in m] for m in population])
     firsts = np.argmax(scores > 1.18, axis=1)
     firsts[firsts == 0] = scores.shape[1]
-    score = np.min(firsts)
+    time_to_converge = np.min(firsts)
 
-    # score = np.min([np.argmax(np.array([h.p for h in m]) > 1.15) for m in population])
+    score = np.max(population.scores)
 
     plot_theta(ax_col[0], population, steps=steps, title=title)
     plot_performance(ax_col[1], population, steps=steps, title=title)
-    return score
+    return score, time_to_converge
 
 
 if __name__ == '__main__':
 
     options = {
-        "steps": 20,
-        "steps_till_ready": 3,
+        "steps": 100,
+        "steps_till_ready": 1,
         "exploration_scale": 0.1,
     }
 
     # REPEAT EXPERIMENT N TIMES
-    n, scores = 1, np.zeros(2)
+    n, scores, converge_times = 10000, np.zeros(2), np.zeros(2)
     fig, axs = make_subplots(2, len(scores))
 
     with tqdm(range(n)) as itr:
         for i in itr:
-            scores[0] += make_plot(axs[:, 0], options, ExploitTruncationSelection(), steps=options["steps"], exploit=True, explore=True, title='PBT Trunc Sel')
-            scores[1] += make_plot(axs[:, 1], options, ExploitUcb(),                 steps=options["steps"], exploit=True, explore=True, title='PBT Ucb Sel')
-            itr.set_description(f'{np.around(scores / (i + 1), 2)}')
+            score_0, converge_time_0 = make_plot(axs[:, 0], options, ExploitTruncationSelection(), steps=options["steps"], exploit=True, explore=True, title='PBT Trunc Sel')
+            score_1, converge_time_1 = make_plot(axs[:, 1], options, ExploitUcb(),                 steps=options["steps"], exploit=True, explore=True, title='PBT Ucb Sel')
+            scores += [score_0, score_1]
+            converge_times += [converge_time_0, converge_time_1]
+            itr.set_description(f'{np.around(scores / (i + 1), 4)} | {np.around(converge_times / (i + 1), 2)}')
     scores /= n
 
     print('T: {}, U: {}'.format(*scores))
 
-    fig.show()
+    # fig.show()
 
 

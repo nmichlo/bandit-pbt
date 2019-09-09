@@ -66,26 +66,25 @@ class ExploitTruncationSelection(Exploiter):
         self._top_ratio = top_ratio
 
     def exploit(self, population: 'IPopulation', member: 'IMember') -> Optional['IMember']:
-        idx_low = int(np.floor(len(population) * self._bottom_ratio))
-        idx_hgh = int(np.floor(len(population) * (1-self._top_ratio)))
-        # we rank all agents in the population by episodic reward (low to high)
+        idx_low = int(len(population) * self._bottom_ratio)
+        idx_hgh = int(len(population) * (1 - self._top_ratio))
 
-        # make sure the current member recieves the lowers priority if values are the same
-        members = sorted(population, key=lambda m: m is not member)
+        # we rank all agents in the population by episodic reward (low to high)
+        members = sorted(population, key=lambda m: m is not member)  # make sure the current member recieves the lowers priority if values are the same
         members = sorted(members, key=lambda m: m.score)
 
-        idx = members.index(member)
-
         #  If the current agent is in the bottom 20% of the population
-        if idx <= idx_low:
+        idx = members.index(member)
+        if idx < idx_low:
             # (we choose another agent)
-            return self._choose_replacement(population, member, members[idx_hgh:])
+            return self._choose_replacement(members[:idx_low], members[idx_low:idx_hgh], members[idx_hgh:], members, population, member)
+
         # Otherwise we do not exploit
         return None
 
-    def _choose_replacement(self, population: 'IPopulation', member: 'IMember', highest_members: List['IMember']) -> 'IMember':
+    def _choose_replacement(self, mbrs_low: List['IMember'], mbrs_mid: List['IMember'], mbrs_top: List['IMember'], mbrs: List['IMember'], population: 'IPopulation', member: 'IMember') -> 'IMember':
         # we sample another agent uniformly from the top 20% of the population
-        return random.choice(highest_members)
+        return random.choice(mbrs_top)
 
 
 class ExploitBinaryTournament(Exploiter):
@@ -110,29 +109,46 @@ class ExploitBinaryTournament(Exploiter):
 
 
 class ExploitUcb(ExploitTruncationSelection):
-    def __init__(self, bottom_ratio=0.2):
+    def __init__(self, bottom_ratio=0.2, c=0.1, mode='sample'):
         super().__init__(bottom_ratio=bottom_ratio, top_ratio=0.2)
         # UCB
         self._step_counts = defaultdict(int)
+        self._c = c
+        self._mode = mode
+        # asdf
+        assert mode in {'ordered', 'truncate', 'sample'}
 
     def _member_on_step(self, member): self._step_counts[member] += 1
     def _member_on_explored(self, member): self._step_counts[member] = 0
     def _member_on_exploited(self, member): pass  # self._step_counts[member] = 0
 
-    def _choose_replacement(self, _pop: 'IPopulation', _mem: 'IMember', members: List['IMember']) -> 'IMember':
+    def _choose_replacement(self, mbrs_low: List['IMember'], mbrs_mid: List['IMember'], mbrs_top: List['IMember'], mbrs: List['IMember'], population: 'IPopulation', member: 'IMember') -> 'IMember':
+        assert mbrs_low + mbrs_mid + mbrs_top == mbrs
+        # TODO: fix floating point for calculating top and bottom indices
+        members = mbrs_top
+
         # assert len(_pop) == len(members), 'Not all members were included'
         # normalise scores
         scores = np.array([m.score for m in members])
-        s_min, s_max = np.min(scores), np.max(scores)
-        scores = (scores - s_min) / (s_max - s_min)
+        s_min, s_max = np.min(population.scores), np.max(population.scores)
+        scores = (scores - s_min) / (s_max - s_min + np.finfo(float).eps)
         # normalise steps
         steps = np.array([self._step_counts[m] for m in members])
         total_steps = np.sum(steps)
         # ucb scores
-        ucb_scores = ExploitUcb.ucb1(scores, steps, total_steps)
-        ucb_ordering = np.argsort(ucb_scores)
-        # return best
-        return members[ucb_ordering[0]]
+        ucb_scores = ExploitUcb.ucb1(scores, steps + 1, total_steps + 1, C=self._c)
+        # mode
+        if self._mode == 'ordered':
+            ucb_ordering = np.argsort(ucb_scores)
+            return members[ucb_ordering[0]]
+        elif self._mode == 'sample':
+            ucb_sum = np.sum(ucb_scores)
+            if ucb_sum == 0:
+                ucb_scores[:] = 1
+            ucb_prob = ucb_scores / (np.sum(ucb_scores) + np.finfo(float).eps)
+            return members[np.random.choice(np.arange(len(members)), p=ucb_prob)]
+        else:
+            raise KeyError('Invalid mode')
 
     @staticmethod
     def ucb1(X_i, n_i, n, C=1):
