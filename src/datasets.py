@@ -21,6 +21,7 @@
 
 import torch.utils.data
 import torchvision
+from filelock import FileLock
 from torchvision import transforms
 import numpy as np
 from tqdm import tqdm
@@ -42,23 +43,23 @@ DATA_DIR = '~/workspace/data'
 
 @cachier()
 def cal_batch_mean_std(dataset_cls):
-    train_transform = transforms.Compose([transforms.ToTensor()])
-    train_set = dataset_cls(root=DATA_DIR, train=True, download=True, transform=train_transform)
-    loader = torch.utils.data.DataLoader(train_set, batch_size=11, num_workers=0, shuffle=False)
+    with FileLock(f"{DATA_DIR}/data.lock"):
+        train_transform = transforms.Compose([transforms.ToTensor()])
+        train_set = dataset_cls(root=DATA_DIR, train=True, download=True, transform=train_transform)
+        loader = torch.utils.data.DataLoader(train_set, batch_size=11, num_workers=0, shuffle=False)
 
-    n = len(loader.dataset)
+        n = len(loader.dataset)
 
-    mean, mean2 = 0, 0
-    for images, _ in tqdm(loader, f'{dataset_cls.__name__} mean & std'):
-        batch_size = images.size(0)  # batch size (the last batch can have smaller size!)
-        images = images.view(batch_size, images.size(1), -1)
-        # probably not super accurate due to "* (batch_size / n)" as this number is small
-        mean += images.mean((0, 2)) * (batch_size / n)
-        mean2 += (images ** 2).mean((0, 2)) * (batch_size / n)
+        mean, mean2 = 0, 0
+        for images, _ in tqdm(loader, f'{dataset_cls.__name__} mean & std'):
+            batch_size = images.size(0)  # batch size (the last batch can have smaller size!)
+            images = images.view(batch_size, images.size(1), -1)
+            # probably not super accurate due to "* (batch_size / n)" as this number is small
+            mean += images.mean((0, 2)) * (batch_size / n)
+            mean2 += (images ** 2).mean((0, 2)) * (batch_size / n)
 
-    std = (mean2 - mean ** 2) ** 0.5
-    return mean.detach().numpy(), std.detach().numpy()
-
+        std = (mean2 - mean ** 2) ** 0.5
+        return mean.detach().numpy(), std.detach().numpy()
 
 # ========================================================================= #
 # LOAD                                                                      #
@@ -66,13 +67,16 @@ def cal_batch_mean_std(dataset_cls):
 
 
 def get_datasets(dataset_cls):
-    mean, std = cal_batch_mean_std(dataset_cls)
-    transform = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize(mean, std)
-    ])
-    trainset = dataset_cls(root=DATA_DIR, train=True, download=True, transform=transform)
-    testset = dataset_cls(root=DATA_DIR, train=False, download=True, transform=transform)
+    # multiple workers can access at the same time,
+    # but Datasets are not threadsafe
+    with FileLock(f"{DATA_DIR}/data.lock"):
+        mean, std = cal_batch_mean_std(dataset_cls)
+        transform = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize(mean, std)
+        ])
+        trainset = dataset_cls(root=DATA_DIR, train=True, download=True, transform=transform)
+        testset = dataset_cls(root=DATA_DIR, train=False, download=True, transform=transform)
     return trainset, testset
 
 
@@ -81,6 +85,18 @@ def get_dataset_loaders(dataset_cls, batch_size=16, shuffle=True, num_workers=1)
     trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers)
     testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
     return trainloader, testloader
+
+
+def make_train_loader(dataset_cls):
+    def inner(config):
+        return get_dataset_loaders(
+            dataset_cls,
+            batch_size=config.get('batch_size', 16),
+            shuffle=config.get('shuffle', True),
+            num_workers=config.get('num_workers', 1),
+        )
+    return inner
+
 
 
 def get_dataset_class_names(dataset_cls):
