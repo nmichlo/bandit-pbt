@@ -31,7 +31,7 @@ job.sh
 #SBATCH --tasks-per-node 1
 
 # bringup ray head and workers, defines $RAY_ADDRESS
-source ./scripts/ray/bringup_ray_cluster.sh
+source ./scripts/bringup_ray_cluster.sh
 # launch ray script
 python main.py | tee "${SLURM_JOB_ID}_log.txt"
 ```
@@ -44,7 +44,6 @@ import ray
 
 ray.init(address=os.environ["RAY_ADDRESS"])
 ```
-
 
 
 ### Development Environment:
