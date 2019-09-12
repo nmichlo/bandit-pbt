@@ -12,11 +12,20 @@ squeue                       # jobs submitted to the cluster queue
 sinfo                        # state of the cluster
 sinfo - R                    # state of the cluster with reasons for drained (disabled) nodes
 
-salloc -N1 -p <queue>        # interactive session | N: num nodes | p: which cluster queue to use
-srun -N1 -n1 -l <executable> # run job | N: num nodes | n: num tasks | l: label output per task
+salloc -N1 -p {queue}               # interactive session | N: num nodes | p: which cluster queue to use
+sbatch -N1 -p {queue} {job_script}  # submit a job file   | N: num nodes | p: which cluster queue to use
 
-scancel <jobid>              # cancel specific job
-scancel --user=<username>    # cancel all my jobs
+srun -N1 -n1 -p {queue} -l {executable}   # run command   | N: num nodes | p: which cluster queue to use | n: num tasks | l: label output per task
+                                          # used inside a job file or interactive session to make a new step
+
+scancel {jobid{.step}}       # cancel specific job
+scancel --user={username}    # cancel all my jobs
+
+sacct                        # view detailed job logs for your account
+sacct -j {jobid}             # view all job steps
+
+# cancel current steps of a job, useful in an salloc session
+scancel $(sacct -j {jobid} | grep RUNNING | grep "{jobid}\." | awk '{print $1}')
 ```
 
 
