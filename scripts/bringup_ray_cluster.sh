@@ -1,3 +1,7 @@
+#!/bin/bash
+
+# Based on:
+# https://ray.readthedocs.io/en/latest/deploying-on-slurm.html
 
 # ------------------------------------------------------------------------- #
 # UTIL                                                                      #
@@ -61,10 +65,6 @@ sleep "${RAY_WAIT}"
 unset default
 unset defined
 unset exists
-
-unset RAY_WORKERS
-unset RAY_PORT
-unset RAY_WAIT
 
 unset _nodes
 unset _ray_address
