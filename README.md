@@ -22,6 +22,9 @@ scancel --user=<username>    # cancel all my jobs
 
 ### [Slurm Ray Submission Script](https://ray.readthedocs.io/en/latest/deploying-on-slurm.html):
 
+*NB* If your cluster requires it, remember to export HTTP_PROXY and HTTPS_PROXY
+
+
 job.sh
 ```shell script
 #!/bin/bash
@@ -30,10 +33,19 @@ job.sh
 #SBATCH --nodes=5
 #SBATCH --tasks-per-node 1
 
-# bringup ray head and workers, defines $RAY_ADDRESS
+# bringup ray head and workers, defines $RAY_ADDRESS, ray_start & ray_stop
 source ./scripts/bringup_ray_cluster.sh
+
+ray_stop   # just to be safe
+ray_start  # bringup the cluster
+
 # launch ray script
 python main.py | tee "${SLURM_JOB_ID}_log.txt"
+
+# cleanup our mess:
+# we do this so we can test manually in an $ `salloc` interactive shell
+ray_stop
+
 ```
 
 
