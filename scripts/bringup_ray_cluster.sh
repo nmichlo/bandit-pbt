@@ -20,6 +20,20 @@
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
 
+# ========================================================================= #
+# SLURM CLUSTER RAY BRINGUP                                                 #
+#                                                                           #
+# This file is intended to be sourced by a slurm job script. Which then     #
+# makes use of the `ray_start` and `ray_stop` functions to surrounding the  #
+# contents of the script to binging up and shutting down the ray cluster.   #
+#                                                                           #
+# It is alright to call `ray_stop` before `ray_start`, thus twice in the    #
+# script to be on the safe side.                                            #
+#                                                                           #
+# The reason this script exists is so that ray can be used within an        #
+# interactive slurm job created via `salloc`.                               #
+# ========================================================================= #
+
 # ------------------------------------------------------------------------- #
 # UTIL                                                                      #
 # ------------------------------------------------------------------------- #
@@ -84,14 +98,14 @@ function start_ray() {
 # ------------------------------------------------------------------------- #
 
 function stop_ray() {
-    # LAUNCH RAY - NODES
+    # STOP RAY - NODES
     echo "[RAY]: STOPPING WORKERS (Errors here are expected)"
     for ((  i=1; i<=$RAY_NUM_WORKERS; i++ )); do
       srun --nodes=1 --ntasks=1 -w "${RAY_NODES[$i]}" ray stop &
     done
     sleep "${RAY_WAIT}"
 
-    # LAUNCH RAY - HEAD
+    # STOP RAY - HEAD
     echo "[RAY]: STOPPING HEAD (Errors here are expected)"
     srun --nodes=1 --ntasks=1 -w "${RAY_NODES[0]}" ray stop &
     sleep "${RAY_WAIT}"
