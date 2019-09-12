@@ -22,45 +22,20 @@ scancel --user=<username>    # cancel all my jobs
 
 ### [Slurm Ray Submission Script](https://ray.readthedocs.io/en/latest/deploying-on-slurm.html):
 
+job.sh
 ```shell script
 #!/bin/bash
 
-#SBATCH --job-name=test
-#SBATCH --cpus-per-task=20
-#SBATCH --mem-per-cpu=1GB
+#SBATCH --job-name=ray_pytorch_mnist
 #SBATCH --nodes=5
 #SBATCH --tasks-per-node 1
 
-RAY_WORKERS=4 # One less that the total number of nodes
-RAY_PORT=6379
-RAW_WAIT=3
-
-# ACTIVATE PYTHON
-module load Langs/Python/3.6.4 # This will vary depending on your environment
-source venv/bin/activate
-
-# GET NODES
-nodes_array=( $(scontrol show hostnames $SLURM_JOB_NODELIST) )
-node_head="${nodes_array[0]}"
-
-# GET RAY_ADDRESS & EXPORT
-RAY_ADDRESS="$(srun --nodes=1 --ntasks=1 -w "${node_head}" hostname --ip-address):${RAY_PORT}"
-export RAY_ADDRESS
-
-# LAUNCH RAY - HEAD
-srun --nodes=1 --ntasks=1 -w "${node_head}" ray start --block --head --redis-port=6379 &
-sleep "${RAW_WAIT}"
-
-# LAUNCH RAY - NODES
-for ((  i=1; i<=${RAY_WORKERS}; i++ )); do
-  node_worker=${nodes_array[$i]}
-  srun --nodes=1 --ntasks=1 -w "${node_worker}" ray start --block --address=$ip_head &
-done
-sleep 5
-
-# START RAY SCRIPT
-python trainer.py 100 # Pass the total number of allocated CPUs
+# bringup ray head and workers, defines $RAY_ADDRESS
+source ./scripts/ray/bringup_ray_cluster.sh
+# launch ray script
+python main.py | tee "${SLURM_JOB_ID}_log.txt"
 ```
+
 
 main.py
 ```python
@@ -68,8 +43,6 @@ import os
 import ray
 
 ray.init(address=os.environ["RAY_ADDRESS"])
-
-# TODO: REST OF SCRIPT
 ```
 
 
