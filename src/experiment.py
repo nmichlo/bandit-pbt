@@ -20,6 +20,7 @@
 
 
 import atexit
+import random
 import settings
 import comet_ml
 import ray
@@ -27,7 +28,7 @@ import ray.tune as tune
 import ray.tune.schedulers
 
 from pprint import pprint
-from ray.tune.examples.mnist_pytorch_trainable import TrainMNIST as MnistTrainable
+from ray.tune.examples.mnist_pytorch_trainable import TrainMNIST
 
 
 # ========================================================================= #
@@ -49,7 +50,10 @@ EXP = comet_ml.Experiment(
 # ========================================================================= #
 
 
-ray.init(address=settings.RAY_ADDRESS)
+ray.init(
+    address=settings.RAY_ADDRESS,
+    logging_level=settings.LOG_LEVEL
+)
 
 @atexit.register
 def _():
@@ -61,16 +65,23 @@ def _():
 # ========================================================================= #
 
 
-# scheduler = tune.schedulers.PopulationBasedTraining(
-#     metric="mean_accuracy",
-#     hyperparam_mutations={
-#
-#     }
-# )
-
-scheduler = tune.schedulers.ASHAScheduler(
-    metric="mean_accuracy"
-)
+if settings.SCHEDULER == 'asha':
+    scheduler = tune.schedulers.ASHAScheduler(
+        metric="mean_accuracy"
+    )
+elif settings.SCHEDULER == 'pbt':
+    scheduler = tune.schedulers.PopulationBasedTraining(
+        time_attr="training_iteration",
+        metric="mean_accuracy",
+        mode="max",
+        perturbation_interval=5,
+        hyperparam_mutations={
+            "lr": lambda: random.uniform(0.0001, 0.02),
+            "momentum": lambda: random.uniform(0.01, 0.99),
+        }
+    )
+else:
+    raise KeyError(f'Invalid scheduler specified: {settings.SCHEDULER}')
 
 
 # ========================================================================= #
@@ -79,7 +90,7 @@ scheduler = tune.schedulers.ASHAScheduler(
 
 
 analysis = tune.run(
-    MnistTrainable,
+    TrainMNIST,
     scheduler=scheduler,
     resources_per_trial=dict(
         cpu=settings.CPUS_PER_NODE,
@@ -89,7 +100,7 @@ analysis = tune.run(
     # compares to values returned from train()
     stop=dict(
         mean_accuracy=0.99,
-        training_iteration=100,
+        training_iteration=20,
     ),
     # sampling functions
     config=dict(

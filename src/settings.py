@@ -17,9 +17,10 @@
 #  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
-
-
+import logging
 import multiprocessing
+from logging import getLevelName
+
 import dotenv
 import os
 import torch
@@ -71,7 +72,23 @@ CPUS_PER_NODE = int(os.getenv('USE_GPU', multiprocessing.cpu_count()))
 # ========================================================================= #
 
 
-POPULATION_SIZE = os.getenv('POPULATION_SIZE', 20)
+_LOG_LEVELS = {
+    'CRITICAL': logging.CRITICAL,  # = 50
+    'FATAL':    logging.FATAL,     # = CRITICAL
+    'ERROR':    logging.ERROR,     # = 40
+    'WARNING':  logging.WARNING,   # = 30
+    'WARN':     logging.WARN,      # = WARNING
+    'INFO':     logging.INFO,      # = 20
+    'DEBUG':    logging.DEBUG,     # = 10
+    'NOTSET':   logging.NOTSET,    # = 0
+}
+
+LOG_LEVEL = os.getenv('LOG_LEVEL', 'ERROR')
+assert LOG_LEVEL in _LOG_LEVELS
+
+
+POPULATION_SIZE = os.getenv('POPULATION_SIZE', 4)
+SCHEDULER = os.getenv('SCHEDULER', 'pbt')
 
 
 # ========================================================================= #

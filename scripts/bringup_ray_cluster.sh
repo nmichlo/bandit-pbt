@@ -112,9 +112,9 @@ function stop_ray() {
 
     # STOP RAY - HEAD
     srun --nodes=1 --ntasks=1 -w "${RAY_NODES[0]}" ray stop &
-
-    # WAIT
     sleep "${RAY_WAIT}"
+
+    echo
 }
 
 # ------------------------------------------------------------------------- #
