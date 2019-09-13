@@ -41,17 +41,20 @@
 function default { if [ -z "${!1}" ]; then readonly "$1"="$2" ; fi ; printf "\033[90m${1}\033[0m=\"\033[32m${!1}\033[0m\" (\033[95moptional\033[0m)\n" ; }
 function defined { if [ -z "${!1}" ]; then printf "\033[91mError: variable \033[90m$1\033[91m is not defined... EXITING\033[0m!\n" ; exit 1 ; fi ; printf "\033[90m${1}\033[0m=\"\033[32m${!1}\033[0m\" (\033[94minfo\033[0m)\n" ; }
 function exists  { if [ -z "$(command -v "$1")" ]; then printf "\033[91mError: command \033[90m$1\033[91m not found... EXITING\033[0m!\n" ; exit 1 ; fi ; }
+function sep { printf "\n# ========================================================================= #\n# \033[${1}m${2}\033[0m\n# ========================================================================= #\n\n" ; }
 
 # ------------------------------------------------------------------------- #
 # VARS                                                                      #
 # ------------------------------------------------------------------------- #
+
+echo
 
 exists srun
 exists scontrol
 
 default RAY_NUM_WORKERS $(("$SLURM_JOB_NUM_NODES" - 1))
 default RAY_PORT 6379
-default RAY_WAIT 5
+default RAY_WAIT 3
 
 echo
 
@@ -81,16 +84,18 @@ RAY_ADDRESS="$(srun --nodes=1 --ntasks=1 -w "${RAY_NODES[0]}" hostname --ip-addr
 
 function start_ray() {
     # LAUNCH RAY - HEAD
-    echo "[RAY]: LAUNCHING HEAD"
+    sep 94 "[RAY]: LAUNCHING HEAD NODE"
     srun --nodes=1 --ntasks=1 -w "${RAY_NODES[0]}" ray start --block --head --redis-port="${RAY_PORT}" &
     sleep "${RAY_WAIT}"
 
     # LAUNCH RAY - NODES
-    echo "[RAY]: LAUNCHING WORKERS"
+    sep 94 "[RAY]: LAUNCHING WORKER NODES"
     for ((  i=1; i<=$RAY_NUM_WORKERS; i++ )); do
       srun --nodes=1 --ntasks=1 -w "${RAY_NODES[$i]}" ray start --block --address="${RAY_ADDRESS}" &
     done
     sleep "${RAY_WAIT}"
+
+    sep 92 "RUN"
 }
 
 # ------------------------------------------------------------------------- #
@@ -98,16 +103,17 @@ function start_ray() {
 # ------------------------------------------------------------------------- #
 
 function stop_ray() {
+    sep 91 "[RAY]: STOPPING NODES (Errors are Expected)"
+
     # STOP RAY - NODES
-    echo "[RAY]: STOPPING WORKERS (Errors here are expected)"
     for ((  i=1; i<=$RAY_NUM_WORKERS; i++ )); do
       srun --nodes=1 --ntasks=1 -w "${RAY_NODES[$i]}" ray stop &
     done
-    sleep "${RAY_WAIT}"
 
     # STOP RAY - HEAD
-    echo "[RAY]: STOPPING HEAD (Errors here are expected)"
     srun --nodes=1 --ntasks=1 -w "${RAY_NODES[0]}" ray stop &
+
+    # WAIT
     sleep "${RAY_WAIT}"
 }
 

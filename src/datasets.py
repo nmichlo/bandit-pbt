@@ -23,7 +23,6 @@ import torch.utils.data
 import torchvision
 from filelock import FileLock
 from torchvision import transforms
-import numpy as np
 from tqdm import tqdm
 from cachier import cachier
 
@@ -96,7 +95,6 @@ def make_train_loader(dataset_cls):
             num_workers=config.get('num_workers', 1),
         )
     return inner
-
 
 
 def get_dataset_class_names(dataset_cls):
