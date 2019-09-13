@@ -101,31 +101,45 @@ def make_plot(ax_col, options, exploiter, steps=200, exploit=True, explore=True,
 
     plot_theta(ax_col[0], population, steps=steps, title=title)
     plot_performance(ax_col[1], population, steps=steps, title=title)
-    return score, time_to_converge
+    return score, time_to_converge, scores.max(axis=0)
 
 
 if __name__ == '__main__':
 
     options = {
-        "steps": 100,
-        "steps_till_ready": 1,
+        "steps": 75,
+        "steps_till_ready": 10,
         "exploration_scale": 0.1,
     }
 
     # REPEAT EXPERIMENT N TIMES
-    n, scores, converge_times = 10000, np.zeros(2), np.zeros(2)
+    k = 2
+    n, scores, converge_times, seq = 100, np.zeros(k), np.zeros(k), np.zeros((k, options['steps']))
     fig, axs = make_subplots(2, len(scores))
 
     with tqdm(range(n)) as itr:
         for i in itr:
-            score_0, converge_time_0 = make_plot(axs[:, 0], options, ExploitTruncationSelection(), steps=options["steps"], exploit=True, explore=True, title='PBT Trunc Sel')
-            score_1, converge_time_1 = make_plot(axs[:, 1], options, ExploitUcb(),                 steps=options["steps"], exploit=True, explore=True, title='PBT Ucb Sel')
+            score_0, converge_time_0, score_seq_0 = make_plot(axs[:, 0], options, ExploitTruncationSelection(), steps=options["steps"], exploit=True, explore=True, title='PBT Trunc Sel')
+            score_1, converge_time_1, score_seq_1 = make_plot(axs[:, 1], options, ExploitUcb(),                 steps=options["steps"], exploit=True, explore=True, title='PBT Ucb Sel')
+
             scores += [score_0, score_1]
             converge_times += [converge_time_0, converge_time_1]
+            seq += [score_seq_0, score_seq_1]
+
             itr.set_description(f'{np.around(scores / (i + 1), 4)} | {np.around(converge_times / (i + 1), 2)}')
     scores /= n
+    seq /= n
 
     print('T: {}, U: {}'.format(*scores))
+
+    fig, ((ax,),) = make_subplots(1, 1)
+
+    ax.plot(seq[0], label='PBT Trunc Sel')
+    ax.plot(seq[1], label='PBT Ucb Sel')
+    ax.legend()
+    ax.set(title='Trunc vs Ucb', xlabel='Steps', ylabel='Ave Max Score')
+
+    fig.show()
 
     # fig.show()
 

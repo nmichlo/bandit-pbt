@@ -110,6 +110,8 @@ class ExploitBinaryTournament(Exploiter):
 
 class ExploitUcb(ExploitTruncationSelection):
     def __init__(self, bottom_ratio=0.2, c=0.1, mode='sample'):
+        # >>> high c is BAD
+        # >>> low c is BAD
         super().__init__(bottom_ratio=bottom_ratio, top_ratio=0.2)
         # UCB
         self._step_counts = defaultdict(int)
@@ -126,11 +128,13 @@ class ExploitUcb(ExploitTruncationSelection):
         assert mbrs_low + mbrs_mid + mbrs_top == mbrs
         # TODO: fix floating point for calculating top and bottom indices
         members = mbrs_top
+        # members = mbrs_mid + mbrs_top # >>> WORSE?
 
         # assert len(_pop) == len(members), 'Not all members were included'
         # normalise scores
         scores = np.array([m.score for m in members])
-        s_min, s_max = np.min(population.scores), np.max(population.scores)
+        # s_min, s_max = np.min(population.scores), np.max(population.scores) # >>> WORSE?
+        s_min, s_max = np.min(scores), np.max(scores)
         scores = (scores - s_min) / (s_max - s_min + np.finfo(float).eps)
         # normalise steps
         steps = np.array([self._step_counts[m] for m in members])
@@ -138,21 +142,23 @@ class ExploitUcb(ExploitTruncationSelection):
         # ucb scores
         ucb_scores = ExploitUcb.ucb1(scores, steps + 1, total_steps + 1, C=self._c)
         # mode
-        if self._mode == 'ordered':
+        if self._mode == 'ordered':  # >>> WORSE
             ucb_ordering = np.argsort(ucb_scores)
             return members[ucb_ordering[0]]
         elif self._mode == 'sample':
             ucb_sum = np.sum(ucb_scores)
             if ucb_sum == 0:
                 ucb_scores[:] = 1
+            # rather do T test than actual UCB, this is wrong.
             ucb_prob = ucb_scores / (np.sum(ucb_scores) + np.finfo(float).eps)
             return members[np.random.choice(np.arange(len(members)), p=ucb_prob)]
         else:
             raise KeyError('Invalid mode')
 
     @staticmethod
-    def ucb1(X_i, n_i, n, C=1):
+    def ucb1(X_i, n_i, n, C=1.):
         return X_i + C * np.sqrt(np.log2(n) / n_i)
+
 
 # ========================================================================= \#
 # END                                                                       \#
