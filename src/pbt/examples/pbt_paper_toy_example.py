@@ -204,11 +204,11 @@ def run_test(make_exploiter, options=None, show=True, test_scores=None, test_con
             s_t, s_p = scipy.stats.ttest_ind(s, test_scores, equal_var=False)
             c_t, c_p = scipy.stats.ttest_ind(c, test_converges, equal_var=False)
             if show:
-                itr.set_description(f's={s.mean().round(4)} [t,p]={np.around([s_t, s_p], 2)} | c={c.mean().round(2)} [t,p]={np.around([c_t, c_p], 2)}')
+                itr.set_description(f's={s.mean().round(6)} (±{util.confidence_interval(s).round(6)}) [t,p]={np.around([s_t, s_p], 4)} | c={c.mean().round(4)} (±{util.confidence_interval(c).round(4)}) [t,p]={np.around([c_t, c_p], 4)}')
         else:
             if show:
                 s, c = np.array(scores), np.array(converges)
-                itr.set_description(f's={s.mean().round(4)} | c={c.mean().round(2)}')
+                itr.set_description(f's={s.mean().round(6)} (±{util.confidence_interval(s).round(6)}) | c={c.mean().round(4)} (±{util.confidence_interval(c).round(4)})')
 
     return scores, converges, score_seq
 
@@ -223,7 +223,7 @@ if __name__ == '__main__':
         # test options
         steps=50,
         n=20,
-        repeats=1000,
+        repeats=5000,
         steps_till_ready=2,
     )
 
