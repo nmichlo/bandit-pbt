@@ -60,6 +60,7 @@ class ExploitTruncationSelection(Exploiter):
     """
 
     def __init__(self, bottom_ratio=0.2, top_ratio=0.2):
+        super().__init__()
         assert 0 <= bottom_ratio <= 1
         assert 0 <= top_ratio <= 1
         self._bottom_ratio = bottom_ratio
@@ -107,59 +108,92 @@ class ExploitBinaryTournament(Exploiter):
 # CUSTOM STRATEGIES                                                         #
 # ========================================================================= #
 
-
 class ExploitUcb(ExploitTruncationSelection):
-    def __init__(self, bottom_ratio=0.2, c=0.1, mode='sample'):
+    def __init__(self, bottom_ratio=0.2, c=0.1, subset_mode='all', incr_mode='stepped', reset_mode='exploited', select_mode='truncate', normalise_mode='subset'):
         # >>> high c is BAD
         # >>> low c is BAD
         super().__init__(bottom_ratio=bottom_ratio, top_ratio=0.2)
         # UCB
         self._step_counts = defaultdict(int)
         self._c = c
-        self._mode = mode
-        # asdf
-        assert mode in {'ordered', 'truncate', 'sample'}
+        # MODES
+        assert select_mode in {'ucb', 'ucb_sample', 'uniform'}
+        assert incr_mode in {'stepped', 'exploited'}
+        assert reset_mode in {'explored_or_exploited', 'explored', 'exploited'}
+        assert subset_mode in {'top', 'exclude_bottom', 'all'}
+        assert normalise_mode in {'subset', 'population'}
+        self._select_mode = select_mode
+        self._incr_mode = incr_mode
+        self._reset_mode = reset_mode
+        self._subset_mode = subset_mode
+        self._normalise_mode = normalise_mode
 
-    def _member_on_step(self, member): self._step_counts[member] += 1
-    def _member_on_explored(self, member): self._step_counts[member] = 0
-    def _member_on_exploited(self, member): pass  # self._step_counts[member] = 0
+    def _member_on_step(self, member):
+        if self._incr_mode == 'stepped':
+            self._step_counts[member] += 1
+    def _member_on_explored(self, member):
+        if self._reset_mode in {'explored_or_exploited', 'explored'}:
+            self._step_counts[member] = 0
+    def _member_on_exploited(self, member):
+        if self._reset_mode in {'explored_or_exploited', 'exploited'}:
+            self._step_counts[member] = 0
+    def _member_on_used_for_exploit(self, member):
+        if self._incr_mode == 'exploited':
+            self._step_counts[member] += 1
 
     def _choose_replacement(self, mbrs_low: List['IMember'], mbrs_mid: List['IMember'], mbrs_top: List['IMember'], mbrs: List['IMember'], population: 'IPopulation', member: 'IMember') -> 'IMember':
         assert mbrs_low + mbrs_mid + mbrs_top == mbrs
         # TODO: fix floating point for calculating top and bottom indices
-        members = mbrs_top
-        # members = mbrs_mid + mbrs_top # >>> WORSE?
+
+        if self._subset_mode == 'top':
+            members = mbrs_top
+        elif self._subset_mode == 'exclude_bottom':
+            members = mbrs_mid + mbrs_top # >>> WORSE?
+        elif self._subset_mode == 'all':
+            members = mbrs[:]
+            members.remove(member)
+        else:
+            raise KeyError('Invalid subset_mode')
 
         # assert len(_pop) == len(members), 'Not all members were included'
         # normalise scores
         scores = np.array([m.score for m in members])
-        # s_min, s_max = np.min(population.scores), np.max(population.scores) # >>> WORSE?
-        s_min, s_max = np.min(scores), np.max(scores)
+
+        if self._normalise_mode == 'population':
+            s_min, s_max = np.min(population.scores), np.max(population.scores)
+        elif self._normalise_mode == 'subset':
+            s_min, s_max = np.min(scores), np.max(scores)
+        else:
+            raise KeyError('Invalid normalise_mode')
+
         scores = (scores - s_min) / (s_max - s_min + np.finfo(float).eps)
         # normalise steps
         steps = np.array([self._step_counts[m] for m in members])
         total_steps = np.sum(steps)
         # ucb scores
         ucb_scores = ExploitUcb.ucb1(scores, steps + 1, total_steps + 1, C=self._c)
+
         # mode
-        if self._mode == 'ordered':  # >>> WORSE
-            ucb_ordering = np.argsort(ucb_scores)
+        if self._select_mode == 'ucb':  # >>> WORSE
+            ucb_ordering = np.argsort(ucb_scores)[::-1]
             return members[ucb_ordering[0]]
-        elif self._mode == 'sample':
+        elif self._select_mode == 'ucb_sample':
             ucb_sum = np.sum(ucb_scores)
             if ucb_sum == 0:
                 ucb_scores[:] = 1
             # rather do T test than actual UCB, this is wrong.
             ucb_prob = ucb_scores / (np.sum(ucb_scores) + np.finfo(float).eps)
             return members[np.random.choice(np.arange(len(members)), p=ucb_prob)]
+        elif self._select_mode == 'uniform':
+            return random.choice(members)
         else:
-            raise KeyError('Invalid mode')
+            raise KeyError('Invalid select_mode')
 
     @staticmethod
     def ucb1(X_i, n_i, n, C=1.):
         return X_i + C * np.sqrt(np.log2(n) / n_i)
 
 
-# ========================================================================= \#
-# END                                                                       \#
-# ========================================================================= \#
+# ========================================================================= #
+# END                                                                       #
+# ========================================================================= #

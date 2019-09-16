@@ -22,6 +22,7 @@
 from typing import List, Iterator, NamedTuple, NoReturn, Optional
 import abc
 import numpy as np
+from tqdm import tqdm
 
 
 # ========================================================================= #
@@ -70,6 +71,10 @@ class IPopulation(abc.ABC):
         return np.array([m.score for m in self.members])
 
     @property
+    def scores_history(self):
+        return np.array([[h.p for h in m] for m in self.members])
+
+    @property
     @abc.abstractmethod
     def options(self) -> dict:
         """
@@ -111,12 +116,16 @@ class Population(IPopulation):
         if len(members) < 1:
             raise RuntimeError('Population must have at least one member')
 
+        for i, m in enumerate(self._members):
+            m._set_id(i)
+
         if options is None:
             options = {}
         self._options = options
 
         assert isinstance(exploiter, IExploiter)
         self._exploiter = exploiter
+        self._exploiter._set_used()
 
     @property
     def members(self) -> List['IMember']:
@@ -131,7 +140,7 @@ class Population(IPopulation):
     def exploiter(self) -> 'IExploiter':
         return self._exploiter
 
-    def train(self, n=None, exploit=True, explore=True) -> 'IPopulation':
+    def train(self, n=None, exploit=True, explore=True, show_progress=True) -> 'IPopulation':
         """
         Based on:
         + The original paper
@@ -146,8 +155,10 @@ class Population(IPopulation):
         if n is None:
             n = self.options.get('steps', 100)
 
+        itr = tqdm(range(n)) if show_progress else range(n)
+
         # TODO: loops should be swapped for async operations
-        for i in range(n):
+        for i in itr:
             for idx, member in enumerate(self.members):  # should be async
 
                 # one step of optimisation using hyper-parameters h
@@ -188,6 +199,8 @@ class Population(IPopulation):
 
     def _exploit(self, member) -> bool:
         exploited = member.exploit(self)
+        if exploited:
+            self.exploiter._member_on_used_for_exploit(exploited)
         self.exploiter._member_on_exploited(member)
         return exploited
 
@@ -211,14 +224,14 @@ class HistoryItem(NamedTuple):
 
     """ hyper-parameters """
     h: object
-    """ parameters """
-    theta: object
     """ score """
     p: float
     """ step number """
     t: int
     """ is exploited """
     exploit_id: Optional[int]
+    """ result """
+    result: Optional[object]
 
 
 # ========================================================================= #
@@ -235,6 +248,9 @@ class IMember(abc.ABC):
     Members remember their history of updates.
     """
 
+    def __init__(self):
+        self._id = None
+
     @abc.abstractmethod
     def copy_h(self) -> object:
         """
@@ -243,12 +259,23 @@ class IMember(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def copy_theta(self) -> object:
-        """
-        :return: A deepcopy of the members parameters (theta)
-        """
+    def _save_theta(self, id):
         pass
-    
+
+    @abc.abstractmethod
+    def _load_theta(self, id):
+        pass
+
+    @property
+    def id(self):
+        assert self._id is not None, 'Member not yet added to a population'
+        return self._id
+
+    def _set_id(self, id):
+        assert self._id is None, 'Member already added to a population'
+        assert id is not None, 'Invalid id'
+        self._id = id
+
     @property
     @abc.abstractmethod
     def history(self) -> List['HistoryItem']:
@@ -329,43 +356,42 @@ class Member(IMember):
     Provides simplified abstract methods that need to be overridden.
     """
 
-    def __init__(self, h=None, theta=None, p=float('-inf'), t=0):
-        # model hyper-parameters
-        self._h = h
-        # model parameters
-        self._theta = theta
-        # check hyper-parameters and parameters are valid.
-        if (self._h is None) or (self._theta is None):
-            raise RuntimeError('hyper-parameters and parameters must be set')
+    def __init__(self):
+        super().__init__()
         # current score, also known as 'Q'
-        self._p = p
+        self._p = float('-inf')
         # current step
-        self._t = t
+        self._t = 0
         # should the score value be recalculated
         self._recal = False
         self._exploited = None
+        self._results = None
         # other vars
         self._history = []
+        self._id = None
 
     def __str__(self):
         """ Get the string representation of the member """
-        return f"{self._t} : {self._p} : {self._h} : {self._theta}"
+        return f"{self._t} : {self._p}"
 
     @property
     def history(self) -> List['HistoryItem']:
         return self._history
 
+    def _push_history(self):
+        self._history.append(HistoryItem(self.copy_h(), self._p, self._t, self._exploited, self._results))
+        self._exploited = None
+
     def step(self, options: dict):
         # append to member's history.
-        self._history.append(HistoryItem(self.copy_h(), self.copy_theta(), self._p, self._t, self._exploited))
-        self._exploited = None
+        self._push_history()
         # update the parameters of the member.
-        self._theta = self._step(options)
+        self._results = self._step(options)
+        self._save_theta(self.id)
         # indicate that the score score should be recalculated.
         self._recal = True
         # increment step counter
         self._t += 1
-        return self._t
 
     def eval(self, options: dict):
         # only recalculate score score if necessary
@@ -386,7 +412,7 @@ class Member(IMember):
         # only use the exploited member's parameters if it is not the same.
         if member is not None:
             if self != member:
-                self._theta = member.copy_theta()
+                self._load_theta(member.id)
                 self._exploited = population.members.index(member)
                 return True
             else:
@@ -416,7 +442,7 @@ class Member(IMember):
     def _step(self, options: dict) -> object:
         """
         :param options: A dictionary of options set for the population, values not guaranteed to exist.
-        :return: Updated values of the parameters, used by self.step()
+        :return: Results generated by the step, to be saved in the history
         """
         pass
 
@@ -444,6 +470,13 @@ class Member(IMember):
 
 class IExploiter(abc.ABC):
 
+    def __init__(self):
+        self._used = False
+
+    def _set_used(self):
+        assert not self._used, 'This exploiter as already been used.'
+        self._used = True
+
     @abc.abstractmethod
     def exploit(self, population: 'IPopulation', member: 'IMember') -> Optional['IMember']:
         """
@@ -460,6 +493,9 @@ class IExploiter(abc.ABC):
         pass
 
     def _member_on_exploited(self, member) -> NoReturn:
+        pass
+
+    def _member_on_used_for_exploit(self, member) -> NoReturn:
         pass
 
 

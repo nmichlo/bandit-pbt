@@ -35,14 +35,14 @@ from ray.tune.examples.mnist_pytorch_trainable import TrainMNIST
 # COMET ML                                                                  #
 # ========================================================================= #
 
-
-
+# Settings are automatically read from environment variables.
+# https://www.comet.ml/docs/python-sdk/advanced/#comet-configuration-variables
 EXP = comet_ml.Experiment(
     disabled=(not settings.ENABLE_COMET_ML),
-    api_key=settings.COMET_ML_API_KEY,
-    project_name=settings.COMET_ML_PROJECT_NAME,
-    workspace=settings.COMET_ML_WORKSPACE,
 )
+
+if EXP.alive is False:
+    raise Exception("Comet.ml isn't alive!")
 
 
 # ========================================================================= #
@@ -50,15 +50,15 @@ EXP = comet_ml.Experiment(
 # ========================================================================= #
 
 
+@atexit.register
+def _():
+    print('Shutting Down Ray')
+    ray.shutdown()
+
 ray.init(
     address=settings.RAY_ADDRESS,
     logging_level=settings.LOG_LEVEL
 )
-
-@atexit.register
-def _():
-    print('Shutting down')
-    ray.shutdown()
 
 
 # ========================================================================= #
@@ -66,11 +66,11 @@ def _():
 # ========================================================================= #
 
 
-if settings.SCHEDULER == 'asha':
+if settings.EXP_SCHEDULER == 'asha':
     scheduler = tune.schedulers.ASHAScheduler(
         metric="mean_accuracy"
     )
-elif settings.SCHEDULER == 'pbt':
+elif settings.EXP_SCHEDULER == 'pbt':
     scheduler = tune.schedulers.PopulationBasedTraining(
         time_attr="training_iteration",
         metric="mean_accuracy",
@@ -82,7 +82,7 @@ elif settings.SCHEDULER == 'pbt':
         }
     )
 else:
-    raise KeyError(f'Invalid scheduler specified: {settings.SCHEDULER}')
+    raise KeyError(f'Invalid scheduler specified: {settings.EXP_SCHEDULER}')
 
 
 # ========================================================================= #
@@ -97,7 +97,7 @@ analysis = tune.run(
         cpu=settings.CPUS_PER_NODE,
         gpu=settings.USE_GPU
     ),
-    num_samples=settings.POPULATION_SIZE,
+    num_samples=settings.EXP_POPULATION_SIZE,
     # compares to values returned from train()
     stop=dict(
         mean_accuracy=0.99,
