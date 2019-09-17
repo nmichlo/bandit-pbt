@@ -1,0 +1,412 @@
+ssh://nmichlo@heartofgold.dontpanic.sh:22/home/nmichlo/.pyenv/versions/miniconda3-latest/bin/python -u /home/nmichlo/workspace/research/improving-pbt/src/pbt/examples/pbt_paper_toy_example.py
+checkpoints		    pbt_paper_toy_example.py
+pbt_local_mnist_example.py  results.pickle
+TEST: TRUNCATE {'select_mode': ['ucb', 'ucb_sample'], 'reset_mode': ['exploited', 'explored_or_exploited', 'explored'], 'incr_mode': ['stepped', 'exploited'], 'subset_mode': ['all', 'top', 'exclude_bottom'], 'normalise_mode': ['population', 'subset'], 'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2}
+s=1.19965 (±3.2e-05) | c=30.9464 (±0.1466): 100%|█| 5000/5000 [03:30<00:00, 23.79it/s]
+TEST UCB: 0 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb', 'reset_mode': 'exploited', 'incr_mode': 'stepped', 'subset_mode': 'all', 'normalise_mode': 'population'}
+  0%|                                                  | 0/5000 [00:00<?, ?it/s]/home/nmichlo/.pyenv/versions/miniconda3-latest/lib/python3.7/site-packages/numpy/core/fromnumeric.py:3367: RuntimeWarning: Degrees of freedom <= 0 for slice
+  **kwargs)
+/home/nmichlo/.pyenv/versions/miniconda3-latest/lib/python3.7/site-packages/numpy/core/_methods.py:132: RuntimeWarning: invalid value encountered in double_scalars
+  ret = ret.dtype.type(ret / rcount)
+s=1.199808 (±2.4e-05) [t,p]=[7.6725 0.    ] | c=29.2816 (±0.1363) [t,p]=[-16.3049   0.    ]: 100%|█| 5000/5000 [04:20<00:00, 19.09it/s]
+TEST UCB: 1 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb', 'reset_mode': 'exploited', 'incr_mode': 'stepped', 'subset_mode': 'all', 'normalise_mode': 'subset'}
+s=1.199822 (±2e-05) [t,p]=[8.8518 0.    ] | c=29.2834 (±0.1343) [t,p]=[-16.3975   0.    ]: 100%|█| 5000/5000 [04:14<00:00, 19.66it/s]
+TEST UCB: 2 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb', 'reset_mode': 'exploited', 'incr_mode': 'stepped', 'subset_mode': 'top', 'normalise_mode': 'population'}
+s=1.199831 (±1.9e-05) [t,p]=[9.4177 0.    ] | c=29.2096 (±0.1345) [t,p]=[-17.1149   0.    ]: 100%|█| 5000/5000 [04:17<00:00, 19.41it/s]
+TEST UCB: 3 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb', 'reset_mode': 'exploited', 'incr_mode': 'stepped', 'subset_mode': 'top', 'normalise_mode': 'subset'}
+s=1.199819 (±2.1e-05) [t,p]=[8.5431 0.    ] | c=29.1864 (±0.1347) [t,p]=[-17.3305   0.    ]: 100%|█| 5000/5000 [04:10<00:00, 19.74it/s]
+TEST UCB: 4 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb', 'reset_mode': 'exploited', 'incr_mode': 'stepped', 'subset_mode': 'exclude_bottom', 'normalise_mode': 'population'}
+s=1.199817 (±2.3e-05) [t,p]=[8.2108 0.    ] | c=29.257 (±0.1369) [t,p]=[-16.5143   0.    ]: 100%|█| 5000/5000 [04:21<00:00, 18.96it/s]
+TEST UCB: 5 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb', 'reset_mode': 'exploited', 'incr_mode': 'stepped', 'subset_mode': 'exclude_bottom', 'normalise_mode': 'subset'}
+s=1.199842 (±1.6e-05) [t,p]=[10.4525  0.    ] | c=29.2076 (±0.1335) [t,p]=[-17.1966   0.    ]: 100%|█| 5000/5000 [04:16<00:00, 19.21it/s]
+TEST UCB: 6 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb', 'reset_mode': 'exploited', 'incr_mode': 'exploited', 'subset_mode': 'all', 'normalise_mode': 'population'}
+s=1.199825 (±1.9e-05) [t,p]=[9.1286 0.    ] | c=29.1244 (±0.1364) [t,p]=[-17.8426   0.    ]: 100%|█| 5000/5000 [04:23<00:00, 18.98it/s]
+TEST UCB: 7 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb', 'reset_mode': 'exploited', 'incr_mode': 'exploited', 'subset_mode': 'all', 'normalise_mode': 'subset'}
+s=1.199823 (±2e-05) [t,p]=[8.9144 0.    ] | c=29.1804 (±0.134) [t,p]=[-17.4328   0.    ]: 100%|█| 5000/5000 [04:16<00:00, 19.46it/s]
+TEST UCB: 8 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb', 'reset_mode': 'exploited', 'incr_mode': 'exploited', 'subset_mode': 'top', 'normalise_mode': 'population'}
+s=1.199822 (±1.9e-05) [t,p]=[8.9349 0.    ] | c=29.3452 (±0.1339) [t,p]=[-15.8138   0.    ]: 100%|█| 5000/5000 [04:20<00:00, 19.11it/s]
+TEST UCB: 9 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb', 'reset_mode': 'exploited', 'incr_mode': 'exploited', 'subset_mode': 'top', 'normalise_mode': 'subset'}
+s=1.199842 (±1.6e-05) [t,p]=[10.4643  0.    ] | c=29.2356 (±0.1326) [t,p]=[-16.967   0.   ]: 100%|█| 5000/5000 [04:12<00:00, 19.77it/s]
+TEST UCB: 10 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb', 'reset_mode': 'exploited', 'incr_mode': 'exploited', 'subset_mode': 'exclude_bottom', 'normalise_mode': 'population'}
+s=1.199829 (±1.9e-05) [t,p]=[9.3694 0.    ] | c=29.238 (±0.1352) [t,p]=[-16.7962   0.    ]: 100%|█| 5000/5000 [04:22<00:00, 18.84it/s]
+TEST UCB: 11 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb', 'reset_mode': 'exploited', 'incr_mode': 'exploited', 'subset_mode': 'exclude_bottom', 'normalise_mode': 'subset'}
+s=1.199813 (±2.3e-05) [t,p]=[8.037 0.   ] | c=29.2186 (±0.1343) [t,p]=[-17.0414   0.    ]: 100%|█| 5000/5000 [04:17<00:00, 19.52it/s]
+TEST UCB: 12 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb', 'reset_mode': 'explored_or_exploited', 'incr_mode': 'stepped', 'subset_mode': 'all', 'normalise_mode': 'population'}
+s=1.199806 (±2.3e-05) [t,p]=[7.6427 0.    ] | c=29.1742 (±0.1364) [t,p]=[-17.3509   0.    ]: 100%|█| 5000/5000 [04:27<00:00, 18.72it/s]
+TEST UCB: 13 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb', 'reset_mode': 'explored_or_exploited', 'incr_mode': 'stepped', 'subset_mode': 'all', 'normalise_mode': 'subset'}
+s=1.199828 (±1.8e-05) [t,p]=[9.357 0.   ] | c=29.2102 (±0.1367) [t,p]=[-16.9841   0.    ]: 100%|█| 5000/5000 [04:19<00:00, 19.29it/s]
+TEST UCB: 14 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb', 'reset_mode': 'explored_or_exploited', 'incr_mode': 'stepped', 'subset_mode': 'top', 'normalise_mode': 'population'}
+s=1.199828 (±2e-05) [t,p]=[9.1482 0.    ] | c=29.2732 (±0.1342) [t,p]=[-16.5073   0.    ]: 100%|█| 5000/5000 [04:19<00:00, 19.15it/s]
+TEST UCB: 15 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb', 'reset_mode': 'explored_or_exploited', 'incr_mode': 'stepped', 'subset_mode': 'top', 'normalise_mode': 'subset'}
+s=1.199827 (±2.1e-05) [t,p]=[9.0045 0.    ] | c=29.2892 (±0.1338) [t,p]=[-16.3682   0.    ]: 100%|█| 5000/5000 [04:12<00:00, 19.82it/s]
+TEST UCB: 16 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb', 'reset_mode': 'explored_or_exploited', 'incr_mode': 'stepped', 'subset_mode': 'exclude_bottom', 'normalise_mode': 'population'}
+s=1.199833 (±1.7e-05) [t,p]=[9.7412 0.    ] | c=29.1964 (±0.1338) [t,p]=[-17.2845   0.    ]: 100%|█| 5000/5000 [04:21<00:00, 19.04it/s]
+TEST UCB: 17 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb', 'reset_mode': 'explored_or_exploited', 'incr_mode': 'stepped', 'subset_mode': 'exclude_bottom', 'normalise_mode': 'subset'}
+s=1.199813 (±2.2e-05) [t,p]=[8.2192 0.    ] | c=29.3496 (±0.1349) [t,p]=[-15.7131   0.    ]: 100%|█| 5000/5000 [04:14<00:00, 19.65it/s]
+TEST UCB: 18 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb', 'reset_mode': 'explored_or_exploited', 'incr_mode': 'exploited', 'subset_mode': 'all', 'normalise_mode': 'population'}
+s=1.199822 (±2.2e-05) [t,p]=[8.643 0.   ] | c=29.264 (±0.1343) [t,p]=[-16.5904   0.    ]: 100%|█| 5000/5000 [04:21<00:00, 19.14it/s]
+TEST UCB: 19 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb', 'reset_mode': 'explored_or_exploited', 'incr_mode': 'exploited', 'subset_mode': 'all', 'normalise_mode': 'subset'}
+s=1.199822 (±2.4e-05) [t,p]=[8.396 0.   ] | c=29.2782 (±0.1346) [t,p]=[-16.4357   0.    ]: 100%|█| 5000/5000 [04:16<00:00, 19.48it/s]
+TEST UCB: 20 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb', 'reset_mode': 'explored_or_exploited', 'incr_mode': 'exploited', 'subset_mode': 'top', 'normalise_mode': 'population'}
+s=1.199837 (±1.7e-05) [t,p]=[10.089  0.   ] | c=29.224 (±0.1338) [t,p]=[-17.0141   0.    ]: 100%|█| 5000/5000 [04:20<00:00, 19.30it/s]
+TEST UCB: 21 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb', 'reset_mode': 'explored_or_exploited', 'incr_mode': 'exploited', 'subset_mode': 'top', 'normalise_mode': 'subset'}
+s=1.199806 (±2.4e-05) [t,p]=[7.6064 0.    ] | c=29.2196 (±0.1351) [t,p]=[-16.9851   0.    ]: 100%|█| 5000/5000 [04:13<00:00, 19.72it/s]
+TEST UCB: 22 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb', 'reset_mode': 'explored_or_exploited', 'incr_mode': 'exploited', 'subset_mode': 'exclude_bottom', 'normalise_mode': 'population'}
+s=1.199819 (±2.2e-05) [t,p]=[8.4522 0.    ] | c=29.3048 (±0.1351) [t,p]=[-16.1469   0.    ]: 100%|█| 5000/5000 [04:22<00:00, 19.04it/s]
+TEST UCB: 23 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb', 'reset_mode': 'explored_or_exploited', 'incr_mode': 'exploited', 'subset_mode': 'exclude_bottom', 'normalise_mode': 'subset'}
+s=1.199828 (±1.8e-05) [t,p]=[9.4554 0.    ] | c=29.2416 (±0.1347) [t,p]=[-16.7883   0.    ]: 100%|█| 5000/5000 [04:15<00:00, 19.54it/s]
+TEST UCB: 24 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb', 'reset_mode': 'explored', 'incr_mode': 'stepped', 'subset_mode': 'all', 'normalise_mode': 'population'}
+s=1.19976 (±3.3e-05) [t,p]=[4.6491 0.    ] | c=29.6006 (±0.1372) [t,p]=[-13.1391   0.    ]: 100%|█| 5000/5000 [04:25<00:00, 18.85it/s]
+TEST UCB: 25 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb', 'reset_mode': 'explored', 'incr_mode': 'stepped', 'subset_mode': 'all', 'normalise_mode': 'subset'}
+s=1.199799 (±2e-05) [t,p]=[7.6418 0.    ] | c=29.4378 (±0.1363) [t,p]=[-14.7746   0.    ]: 100%|█| 5000/5000 [04:18<00:00, 19.33it/s]
+TEST UCB: 26 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb', 'reset_mode': 'explored', 'incr_mode': 'stepped', 'subset_mode': 'top', 'normalise_mode': 'population'}
+s=1.199811 (±2e-05) [t,p]=[8.3074 0.    ] | c=29.3842 (±0.1342) [t,p]=[-15.413   0.   ]: 100%|█| 5000/5000 [04:21<00:00, 19.11it/s]
+TEST UCB: 27 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb', 'reset_mode': 'explored', 'incr_mode': 'stepped', 'subset_mode': 'top', 'normalise_mode': 'subset'}
+s=1.199825 (±2e-05) [t,p]=[9.0207 0.    ] | c=29.1434 (±0.1349) [t,p]=[-17.7437   0.    ]: 100%|█| 5000/5000 [04:14<00:00, 19.63it/s]
+TEST UCB: 28 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb', 'reset_mode': 'explored', 'incr_mode': 'stepped', 'subset_mode': 'exclude_bottom', 'normalise_mode': 'population'}
+s=1.199802 (±2e-05) [t,p]=[7.8532 0.    ] | c=29.4642 (±0.1357) [t,p]=[-14.5448   0.    ]: 100%|█| 5000/5000 [04:24<00:00, 18.97it/s]
+TEST UCB: 29 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb', 'reset_mode': 'explored', 'incr_mode': 'stepped', 'subset_mode': 'exclude_bottom', 'normalise_mode': 'subset'}
+s=1.199817 (±2.1e-05) [t,p]=[8.4554 0.    ] | c=29.3502 (±0.1355) [t,p]=[-15.6761   0.    ]: 100%|█| 5000/5000 [04:17<00:00, 19.44it/s]
+TEST UCB: 30 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb', 'reset_mode': 'explored', 'incr_mode': 'exploited', 'subset_mode': 'all', 'normalise_mode': 'population'}
+s=1.199813 (±2.7e-05) [t,p]=[7.5241 0.    ] | c=29.1996 (±0.135) [t,p]=[-17.1875   0.    ]: 100%|█| 5000/5000 [04:24<00:00, 18.95it/s]
+TEST UCB: 31 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb', 'reset_mode': 'explored', 'incr_mode': 'exploited', 'subset_mode': 'all', 'normalise_mode': 'subset'}
+s=1.199829 (±2e-05) [t,p]=[9.1875 0.    ] | c=29.0972 (±0.1362) [t,p]=[-18.1184   0.    ]: 100%|█| 5000/5000 [04:16<00:00, 19.47it/s]
+TEST UCB: 32 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb', 'reset_mode': 'explored', 'incr_mode': 'exploited', 'subset_mode': 'top', 'normalise_mode': 'population'}
+s=1.199815 (±2e-05) [t,p]=[8.4824 0.    ] | c=29.2284 (±0.1379) [t,p]=[-16.7354   0.    ]: 100%|█| 5000/5000 [04:20<00:00, 19.20it/s]
+TEST UCB: 33 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb', 'reset_mode': 'explored', 'incr_mode': 'exploited', 'subset_mode': 'top', 'normalise_mode': 'subset'}
+s=1.199822 (±1.8e-05) [t,p]=[9.084 0.   ] | c=29.268 (±0.1348) [t,p]=[-16.5212   0.    ]: 100%|█| 5000/5000 [04:13<00:00, 19.59it/s]
+TEST UCB: 34 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb', 'reset_mode': 'explored', 'incr_mode': 'exploited', 'subset_mode': 'exclude_bottom', 'normalise_mode': 'population'}
+s=1.199825 (±2e-05) [t,p]=[9.0527 0.    ] | c=29.2176 (±0.1352) [t,p]=[-16.9945   0.    ]: 100%|█| 5000/5000 [04:23<00:00, 19.01it/s]
+TEST UCB: 35 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb', 'reset_mode': 'explored', 'incr_mode': 'exploited', 'subset_mode': 'exclude_bottom', 'normalise_mode': 'subset'}
+s=1.199829 (±1.9e-05) [t,p]=[9.4 0. ] | c=29.2336 (±0.1344) [t,p]=[-16.887   0.   ]: 100%|█| 5000/5000 [04:17<00:00, 19.28it/s]
+TEST UCB: 36 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb_sample', 'reset_mode': 'exploited', 'incr_mode': 'stepped', 'subset_mode': 'all', 'normalise_mode': 'population'}
+s=1.198978 (±8e-05) [t,p]=[-15.2161   0.    ] | c=33.4982 (±0.1601) [t,p]=[23.0464  0.    ]: 100%|█| 5000/5000 [04:50<00:00, 17.07it/s]
+TEST UCB: 37 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb_sample', 'reset_mode': 'exploited', 'incr_mode': 'stepped', 'subset_mode': 'all', 'normalise_mode': 'subset'}
+s=1.199024 (±7.7e-05) [t,p]=[-14.6911   0.    ] | c=33.3644 (±0.1615) [t,p]=[21.7341  0.    ]: 100%|█| 5000/5000 [04:44<00:00, 17.66it/s]
+TEST UCB: 38 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb_sample', 'reset_mode': 'exploited', 'incr_mode': 'stepped', 'subset_mode': 'top', 'normalise_mode': 'population'}
+s=1.19966 (±3.4e-05) [t,p]=[0.3978 0.6908] | c=30.7082 (±0.1435) [t,p]=[-2.2764  0.0228]: 100%|█| 5000/5000 [04:49<00:00, 17.46it/s]
+TEST UCB: 39 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb_sample', 'reset_mode': 'exploited', 'incr_mode': 'stepped', 'subset_mode': 'top', 'normalise_mode': 'subset'}
+s=1.199753 (±3.3e-05) [t,p]=[4.3209 0.    ] | c=29.8872 (±0.1405) [t,p]=[-10.2286   0.    ]: 100%|█| 5000/5000 [04:40<00:00, 16.91it/s]
+TEST UCB: 40 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb_sample', 'reset_mode': 'exploited', 'incr_mode': 'stepped', 'subset_mode': 'exclude_bottom', 'normalise_mode': 'population'}
+s=1.19912 (±6.9e-05) [t,p]=[-13.7043   0.    ] | c=33.1848 (±0.1587) [t,p]=[20.3158  0.    ]: 100%|█| 5000/5000 [04:48<00:00, 16.79it/s]
+TEST UCB: 41 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb_sample', 'reset_mode': 'exploited', 'incr_mode': 'stepped', 'subset_mode': 'exclude_bottom', 'normalise_mode': 'subset'}
+s=1.199198 (±8.5e-05) [t,p]=[-9.8111  0.    ] | c=32.879 (±0.1565) [t,p]=[17.6716  0.    ]: 100%|█| 5000/5000 [04:41<00:00, 17.41it/s]
+TEST UCB: 42 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb_sample', 'reset_mode': 'exploited', 'incr_mode': 'exploited', 'subset_mode': 'all', 'normalise_mode': 'population'}
+s=1.199165 (±7.5e-05) [t,p]=[-11.6894   0.    ] | c=32.746 (±0.1586) [t,p]=[16.3363  0.    ]: 100%|█| 5000/5000 [04:48<00:00, 16.97it/s]
+TEST UCB: 43 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb_sample', 'reset_mode': 'exploited', 'incr_mode': 'exploited', 'subset_mode': 'all', 'normalise_mode': 'subset'}
+s=1.199199 (±6.7e-05) [t,p]=[-11.881   0.   ] | c=32.7316 (±0.1587) [t,p]=[16.2  0. ]: 100%|█| 5000/5000 [04:41<00:00, 17.47it/s]
+TEST UCB: 44 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb_sample', 'reset_mode': 'exploited', 'incr_mode': 'exploited', 'subset_mode': 'top', 'normalise_mode': 'population'}
+s=1.199675 (±3.7e-05) [t,p]=[0.9797 0.3273] | c=30.7158 (±0.1437) [t,p]=[-2.2027  0.0276]: 100%|█| 5000/5000 [04:46<00:00, 17.16it/s]
+TEST UCB: 45 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb_sample', 'reset_mode': 'exploited', 'incr_mode': 'exploited', 'subset_mode': 'top', 'normalise_mode': 'subset'}
+s=1.199782 (±2.1e-05) [t,p]=[6.68 0.  ] | c=29.7432 (±0.1382) [t,p]=[-11.7095   0.    ]: 100%|█| 5000/5000 [04:39<00:00, 17.77it/s]
+TEST UCB: 46 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb_sample', 'reset_mode': 'exploited', 'incr_mode': 'exploited', 'subset_mode': 'exclude_bottom', 'normalise_mode': 'population'}
+s=1.199258 (±5.9e-05) [t,p]=[-11.4983   0.    ] | c=32.6528 (±0.1576) [t,p]=[15.5426  0.    ]: 100%|█| 5000/5000 [04:47<00:00, 17.33it/s]
+TEST UCB: 47 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb_sample', 'reset_mode': 'exploited', 'incr_mode': 'exploited', 'subset_mode': 'exclude_bottom', 'normalise_mode': 'subset'}
+s=1.199351 (±5.4e-05) [t,p]=[-9.3302  0.    ] | c=32.3086 (±0.1546) [t,p]=[12.5341  0.    ]: 100%|█| 5000/5000 [04:40<00:00, 17.64it/s]
+TEST UCB: 48 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb_sample', 'reset_mode': 'explored_or_exploited', 'incr_mode': 'stepped', 'subset_mode': 'all', 'normalise_mode': 'population'}
+s=1.199059 (±7.5e-05) [t,p]=[-14.1379   0.    ] | c=33.348 (±0.1594) [t,p]=[21.7442  0.    ]: 100%|█| 5000/5000 [04:49<00:00, 17.23it/s]
+TEST UCB: 49 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb_sample', 'reset_mode': 'explored_or_exploited', 'incr_mode': 'stepped', 'subset_mode': 'all', 'normalise_mode': 'subset'}
+s=1.198971 (±8.8e-05) [t,p]=[-14.2531   0.    ] | c=33.4982 (±0.16) [t,p]=[23.0512  0.    ]: 100%|█| 5000/5000 [04:42<00:00, 17.55it/s]
+TEST UCB: 50 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb_sample', 'reset_mode': 'explored_or_exploited', 'incr_mode': 'stepped', 'subset_mode': 'top', 'normalise_mode': 'population'}
+s=1.199676 (±2.9e-05) [t,p]=[1.1626 0.245 ] | c=30.7448 (±0.1424) [t,p]=[-1.9338  0.0532]: 100%|█| 5000/5000 [04:47<00:00, 17.40it/s]
+TEST UCB: 51 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb_sample', 'reset_mode': 'explored_or_exploited', 'incr_mode': 'stepped', 'subset_mode': 'top', 'normalise_mode': 'subset'}
+s=1.199746 (±3.7e-05) [t,p]=[3.8212e+00 1.0000e-04] | c=29.7484 (±0.1381) [t,p]=[-11.6607   0.    ]: 100%|█| 5000/5000 [04:41<00:00, 17.62it/s]
+TEST UCB: 52 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb_sample', 'reset_mode': 'explored_or_exploited', 'incr_mode': 'stepped', 'subset_mode': 'exclude_bottom', 'normalise_mode': 'population'}
+s=1.199171 (±6.2e-05) [t,p]=[-13.5054   0.    ] | c=33.1028 (±0.1578) [t,p]=[19.6319  0.    ]: 100%|█| 5000/5000 [04:49<00:00, 17.16it/s]
+TEST UCB: 53 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb_sample', 'reset_mode': 'explored_or_exploited', 'incr_mode': 'stepped', 'subset_mode': 'exclude_bottom', 'normalise_mode': 'subset'}
+s=1.199262 (±6.6e-05) [t,p]=[-10.3433   0.    ] | c=32.7842 (±0.1558) [t,p]=[16.8432  0.    ]: 100%|█| 5000/5000 [04:44<00:00, 17.66it/s]
+TEST UCB: 54 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb_sample', 'reset_mode': 'explored_or_exploited', 'incr_mode': 'exploited', 'subset_mode': 'all', 'normalise_mode': 'population'}
+s=1.199202 (±7e-05) [t,p]=[-11.43   0.  ] | c=32.6464 (±0.158) [t,p]=[15.4637  0.    ]: 100%|█| 5000/5000 [04:50<00:00, 17.26it/s]
+TEST UCB: 55 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb_sample', 'reset_mode': 'explored_or_exploited', 'incr_mode': 'exploited', 'subset_mode': 'all', 'normalise_mode': 'subset'}
+s=1.199088 (±8.1e-05) [t,p]=[-12.6146   0.    ] | c=32.74 (±0.1618) [t,p]=[16.1054  0.    ]: 100%|█| 5000/5000 [04:44<00:00, 17.70it/s]
+TEST UCB: 56 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb_sample', 'reset_mode': 'explored_or_exploited', 'incr_mode': 'exploited', 'subset_mode': 'top', 'normalise_mode': 'population'}
+s=1.199633 (±5.1e-05) [t,p]=[-0.5785  0.5629] | c=30.7194 (±0.1434) [t,p]=[-2.17  0.03]: 100%|█| 5000/5000 [04:48<00:00, 17.24it/s]
+TEST UCB: 57 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb_sample', 'reset_mode': 'explored_or_exploited', 'incr_mode': 'exploited', 'subset_mode': 'top', 'normalise_mode': 'subset'}
+s=1.199772 (±2.7e-05) [t,p]=[5.6997 0.    ] | c=29.7302 (±0.1379) [t,p]=[-11.8479   0.    ]: 100%|█| 5000/5000 [04:41<00:00, 17.79it/s]
+TEST UCB: 58 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb_sample', 'reset_mode': 'explored_or_exploited', 'incr_mode': 'exploited', 'subset_mode': 'exclude_bottom', 'normalise_mode': 'population'}
+s=1.199238 (±6.8e-05) [t,p]=[-10.7035   0.    ] | c=32.6394 (±0.1575) [t,p]=[15.4242  0.    ]: 100%|█| 5000/5000 [04:47<00:00, 17.30it/s]
+TEST UCB: 59 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb_sample', 'reset_mode': 'explored_or_exploited', 'incr_mode': 'exploited', 'subset_mode': 'exclude_bottom', 'normalise_mode': 'subset'}
+s=1.19941 (±5e-05) [t,p]=[-7.8705  0.    ] | c=32.0894 (±0.1516) [t,p]=[10.6251  0.    ]: 100%|█| 5000/5000 [04:41<00:00, 17.74it/s]
+TEST UCB: 60 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb_sample', 'reset_mode': 'explored', 'incr_mode': 'stepped', 'subset_mode': 'all', 'normalise_mode': 'population'}
+s=1.199047 (±7.4e-05) [t,p]=[-14.6629   0.    ] | c=33.3934 (±0.1593) [t,p]=[22.159  0.   ]: 100%|█| 5000/5000 [04:48<00:00, 16.37it/s]
+TEST UCB: 61 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb_sample', 'reset_mode': 'explored', 'incr_mode': 'stepped', 'subset_mode': 'all', 'normalise_mode': 'subset'}
+s=1.199017 (±7.7e-05) [t,p]=[-14.8214   0.    ] | c=33.3724 (±0.1614) [t,p]=[21.8106  0.    ]: 100%|█| 5000/5000 [04:41<00:00, 17.15it/s]
+TEST UCB: 62 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb_sample', 'reset_mode': 'explored', 'incr_mode': 'stepped', 'subset_mode': 'top', 'normalise_mode': 'population'}
+s=1.199673 (±3.4e-05) [t,p]=[0.9337 0.3505] | c=30.6896 (±0.1439) [t,p]=[-2.4513  0.0142]: 100%|█| 5000/5000 [04:44<00:00, 17.03it/s]
+TEST UCB: 63 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb_sample', 'reset_mode': 'explored', 'incr_mode': 'stepped', 'subset_mode': 'top', 'normalise_mode': 'subset'}
+s=1.199758 (±2.7e-05) [t,p]=[5.0319 0.    ] | c=30.011 (±0.1385) [t,p]=[-9.0941  0.    ]: 100%|█| 5000/5000 [04:40<00:00, 17.29it/s]
+TEST UCB: 64 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb_sample', 'reset_mode': 'explored', 'incr_mode': 'stepped', 'subset_mode': 'exclude_bottom', 'normalise_mode': 'population'}
+s=1.199157 (±7.8e-05) [t,p]=[-11.4469   0.    ] | c=32.9654 (±0.1586) [t,p]=[18.3297  0.    ]: 100%|█| 5000/5000 [04:48<00:00, 17.05it/s]
+TEST UCB: 65 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb_sample', 'reset_mode': 'explored', 'incr_mode': 'stepped', 'subset_mode': 'exclude_bottom', 'normalise_mode': 'subset'}
+s=1.199302 (±5.2e-05) [t,p]=[-11.1328   0.    ] | c=32.733 (±0.1534) [t,p]=[16.5074  0.    ]: 100%|█| 5000/5000 [04:41<00:00, 17.53it/s]
+TEST UCB: 66 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb_sample', 'reset_mode': 'explored', 'incr_mode': 'exploited', 'subset_mode': 'all', 'normalise_mode': 'population'}
+s=1.199145 (±7.9e-05) [t,p]=[-11.6627   0.    ] | c=32.8432 (±0.158) [t,p]=[17.2567  0.    ]: 100%|█| 5000/5000 [04:48<00:00, 17.18it/s]
+TEST UCB: 67 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb_sample', 'reset_mode': 'explored', 'incr_mode': 'exploited', 'subset_mode': 'all', 'normalise_mode': 'subset'}
+s=1.199239 (±6.1e-05) [t,p]=[-11.7194   0.    ] | c=32.673 (±0.1544) [t,p]=[15.9  0. ]: 100%|█| 5000/5000 [04:43<00:00, 17.58it/s]
+TEST UCB: 68 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb_sample', 'reset_mode': 'explored', 'incr_mode': 'exploited', 'subset_mode': 'top', 'normalise_mode': 'population'}
+s=1.199675 (±3.1e-05) [t,p]=[1.0935 0.2742] | c=30.6588 (±0.1428) [t,p]=[-2.7555  0.0059]: 100%|█| 5000/5000 [04:48<00:00, 17.31it/s]
+TEST UCB: 69 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb_sample', 'reset_mode': 'explored', 'incr_mode': 'exploited', 'subset_mode': 'top', 'normalise_mode': 'subset'}
+s=1.199778 (±2.2e-05) [t,p]=[6.4535 0.    ] | c=29.7446 (±0.1378) [t,p]=[-11.712   0.   ]: 100%|█| 5000/5000 [04:39<00:00, 17.93it/s]
+TEST UCB: 70 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb_sample', 'reset_mode': 'explored', 'incr_mode': 'exploited', 'subset_mode': 'exclude_bottom', 'normalise_mode': 'population'}
+s=1.199207 (±6.5e-05) [t,p]=[-11.9773   0.    ] | c=32.6398 (±0.1587) [t,p]=[15.368  0.   ]: 100%|█| 5000/5000 [04:47<00:00, 17.51it/s]
+TEST UCB: 71 {'steps': 50, 'n': 20, 'repeats': 5000, 'steps_till_ready': 2, 'select_mode': 'ucb_sample', 'reset_mode': 'explored', 'incr_mode': 'exploited', 'subset_mode': 'exclude_bottom', 'normalise_mode': 'subset'}
+s=1.199404 (±5e-05) [t,p]=[-8.1213  0.    ] | c=32.093 (±0.1528) [t,p]=[10.6168  0.    ]: 100%|█| 5000/5000 [04:39<00:00, 17.81it/s]
+
+DONE!
+
+
+Process finished with exit code 0
+
+
+
+# ========================================================================= #
+# CODE                                                                      #
+# ========================================================================= #
+
+import pickle
+from pprint import pprint
+from typing import NamedTuple
+import numpy as np
+import matplotlib.pyplot as plt
+from tqdm import tqdm
+
+import util
+from pbt.strategies import ExploitUcb, ExploitTruncationSelection
+from pbt.pbt import Member, Population
+import scipy.stats
+
+
+# ========================================================================= #
+# SYSTEM                                                                    #
+# ========================================================================= #
+
+
+class ToyHyperParams(NamedTuple):
+    coef: np.ndarray
+    alpha: float
+
+
+# ========================================================================= #
+# Member - TOY                                                              #
+# ========================================================================= #
+
+_THETA_STORE = {}
+
+class ToyMember(Member):
+    """
+    options provided:
+    - steps_till_ready=4
+    - learning_rate=0.01
+    - exploration_scale=0.1
+    """
+
+    def __init__(self, h, theta):
+        super().__init__()
+        self._theta = theta
+        self._h = h
+
+    def _save_theta(self, id):
+        _THETA_STORE[id] = np.copy(self._theta)
+
+    def _load_theta(self, id):
+        self._theta = np.copy(_THETA_STORE[id])
+
+    def copy_h(self) -> ToyHyperParams:
+        return ToyHyperParams(np.copy(self._h.coef), self._h.alpha)
+
+    def _is_ready(self, population: 'Population') -> bool:
+        return self._t % population.options.get('steps_till_ready', 4) == 0  # and (self != max(population, key=lambda m: m._p))
+
+    def _step(self, options: dict) -> dict:
+        dtheta = -2 * self._h.coef * self._theta
+        self._theta += self._h.alpha * dtheta
+        return { 'theta': np.copy(self._theta) }
+
+    def _eval(self, options: dict) -> float:
+        return 1.2 - np.dot(self._theta, self._theta)
+
+    def _explore(self, population: 'Population') -> ToyHyperParams:
+        """perturb hyper-parameters with noise from a normal distribution"""
+        s = population.options.get('exploration_scale', 0.1)
+        return ToyHyperParams(
+            np.clip(np.random.normal(self._h.coef, s), 0, 1),
+            np.clip(np.random.normal(self._h.alpha, s), 0, 1),
+        )
+
+# ============================================================================ #
+# PLOTTING                                                                     #
+# ============================================================================ #
+
+
+def make_subplots(h, w, figsize=None):
+    fig, axs = plt.subplots(h, w, figsize=figsize)
+    return fig, np.array(axs).reshape((h, w))
+
+def plot_performance(ax, population, steps, title):
+    for member, color in zip(population, 'brgcmyk'):
+        vals = [step.p for step in member]
+        ax.plot(vals, color=color, lw=0.7)
+    ax.axhline(y=1.2, linestyle='dotted', color='k')
+    ax.set(xlim=[0, steps-1], ylim=[-0.5, 1.31], title=title, xlabel='Step', ylabel='Q')
+
+def plot_theta(ax, population, steps, title):
+    for member, color in zip(population, 'brgcmyk'):
+        steps = [step for step in member if step.result]
+        x, y = np.array([step.result['theta'][0] for step in steps]), np.array([step.result['theta'][1] for step in steps])
+        jumps = np.where([step.exploit_id is not None for step in steps])[0]
+        x, y = np.insert(x, jumps, np.nan), np.insert(y, jumps, np.nan)
+        ax.plot(x, y, color=color, lw=0.5, zorder=1)
+        ax.scatter(x, y, color=color, s=1, zorder=2)
+
+    ax.set(xlim=[-0.1, 1], ylim=[-0.1, 1], title=title, xlabel='theta0', ylabel='theta1')
+
+def make_plot(ax_col, options, exploiter, steps=200, exploit=True, explore=True, title=None):
+    population = Population([
+        # ToyMember(ToyHyperParams(np.array([1., .0]), 0.01), np.array([.9, .9])),
+        # ToyMember(ToyHyperParams(np.array([.0, 1.]), 0.01), np.array([.9, .9])),
+        *[ToyMember(h=ToyHyperParams(np.random.rand(2) * 0.5, 0.01), theta=np.array([.9, .9])) for i in range(10)],
+        # *[ToyMember(ToyHyperParams(np.array([np.random.rand()*0.5, 1.]), 0.01), np.array([.9, .9])) for i in range(3)],
+    ], exploiter=exploiter, options=options)
+
+    population.train(steps, exploit=exploit, explore=explore, show_progress=False)
+
+    # Calculates the score as the index of the first occurrence greater than 1.18
+    scores = np.array([[h.p for h in m] for m in population])
+    firsts = np.argmax(scores > 1.18, axis=1)
+    firsts[firsts == 0] = scores.shape[1]
+    time_to_converge = np.min(firsts)
+
+    score = np.max(population.scores)
+
+    plot_theta(ax_col[0], population, steps=steps, title=title)
+    plot_performance(ax_col[1], population, steps=steps, title=title)
+    return score, time_to_converge, scores.max(axis=0), len(population)
+
+
+def run_dual_test():
+
+    options = {
+        "steps": 45,
+        "steps_till_ready": 2,
+        "exploration_scale": 0.1,
+    }
+
+    # REPEAT EXPERIMENT N TIMES
+    n = 150
+
+    k, pop_size = 2, None
+    scores, converges, score_seq = [], [], np.zeros((k, options['steps']))
+
+    # LOGGING
+    fig, axs = make_subplots(2, k)
+
+    with tqdm(range(n)) as itr:
+        for i in itr:
+            score_0, converge_time_0, score_seq_0, pop_len0 = make_plot(axs[:, 0], options, ExploitTruncationSelection, steps=options["steps"], exploit=True, explore=True, title='PBT Trunc Sel')
+            score_1, converge_time_1, score_seq_1, pop_len1 = make_plot(axs[:, 1], options, ExploitUcb,                 steps=options["steps"], exploit=True, explore=True, title='PBT Ucb Sel')
+
+            scores.append([score_0, score_1])
+            converges.append([converge_time_0, converge_time_1])
+            score_seq += [score_seq_0, score_seq_1]
+
+            assert (pop_size is None or pop_size == pop_len0) and pop_len0 == pop_len1
+            pop_size = pop_len0
+
+            # The t score is a ratio between the difference between two groups and the difference within the groups.
+            # The larger the t score, the more difference there is between groups
+            # A p-value is the probability that the results from your sample data occurred by chance
+            # p < 0.05 is normally accepted as valid results
+            s, c = np.array(scores), np.array(converges)
+            s_t, s_p = scipy.stats.ttest_ind(*s.T, equal_var=False)
+            c_t, c_p = scipy.stats.ttest_ind(*c.T, equal_var=False)
+
+            itr.set_description(f's={s.mean(axis=0).round(4)} [t,p]={np.around([s_t, s_p], 2)} | c={c.mean(axis=0).round(2)} [t,p]={np.around([c_t, c_p], 2)}')
+
+    scores, converges, score_seq = np.array(scores), np.array(converges), np.array(score_seq)
+    fig.show()
+
+    fig, ((ax,),) = make_subplots(1, 1)
+    ax.plot(score_seq[0], label='PBT Trunc Sel')
+    ax.plot(score_seq[1], label='PBT Ucb Sel')
+    ax.legend()
+    # ax.set(title=f'Trunc vs Ucb: {dict(n=pop_size, r=options["steps_till_ready"])}', xlabel='Steps', ylabel='Ave Max Score')
+
+    fig.show()
+
+
+def run_test(make_exploiter, options=None, show=True, test_scores=None, test_converges=None):
+    options = {**{
+        'steps': 50, 'n': 10, 'steps_till_ready': 2, 'exploration_scale': 0.1,
+        'exploit': True, 'explore': True, 'repeats': 100,
+    }, **(options or {})}
+
+    # stats
+    scores, converges, score_seq = [], [], np.zeros(options['steps'])
+    # iterator
+    itr = (tqdm(range(options['repeats'])) if show else range(options['repeats']))
+
+    for i in itr:
+        # Members
+        population = Population([
+            *[ToyMember(h=ToyHyperParams(np.random.rand(2) * 0.5, 0.01), theta=np.array([.9, .9])) for i in range(options['n'])],
+        ], exploiter=make_exploiter(), options=options)
+        # Train
+        population.train(options['steps'], exploit=options['exploit'], explore=options['explore'], show_progress=False)
+
+        # Calculates the score as the index of the first occurrence greater than 1.18
+        _firsts = np.argmax(population.scores_history > 1.18, axis=1)
+        _firsts[_firsts == 0] = options['steps']
+        scores.append(np.max(population.scores))
+        converges.append(np.min(_firsts))
+        score_seq += population.scores_history.max(axis=0) * (1 / options['steps'])
+
+        # The t score is a ratio between the difference between two groups and the difference within the groups.
+        # The larger the t score, the more difference there is between groups
+        # A p-value is the probability that the results from your sample data occurred by chance
+        # p < 0.05 is normally accepted as valid results
+        if test_scores is not None and test_converges is not None:
+            s, c, test_scores, test_converges = np.array(scores), np.array(converges), np.array(test_scores), np.array(test_converges)
+            s_t, s_p = scipy.stats.ttest_ind(s, test_scores, equal_var=False)
+            c_t, c_p = scipy.stats.ttest_ind(c, test_converges, equal_var=False)
+            if show:
+                itr.set_description(f's={s.mean().round(6)} (±{util.confidence_interval(s).round(6)}) [t,p]={np.around([s_t, s_p], 4)} | c={c.mean().round(4)} (±{util.confidence_interval(c).round(4)}) [t,p]={np.around([c_t, c_p], 4)}')
+        else:
+            if show:
+                s, c = np.array(scores), np.array(converges)
+                itr.set_description(f's={s.mean().round(6)} (±{util.confidence_interval(s).round(6)}) | c={c.mean().round(4)} (±{util.confidence_interval(c).round(4)})')
+
+    return scores, converges, score_seq
+
+
+if __name__ == '__main__':
+    grid_search_options = dict(
+        select_mode=['ucb', 'ucb_sample'],  #, 'uniform'},
+        reset_mode=['exploited', 'explored_or_exploited', 'explored'],
+        incr_mode=['stepped', 'exploited'],
+        subset_mode=['all', 'top', 'exclude_bottom'],
+        normalise_mode=['population', 'subset'],
+        # test options
+        steps=50,
+        n=20,
+        repeats=5000,
+        steps_till_ready=2,
+    )
+
+    test_log = []
+    def append_results(id, options, results):
+        test_log.append([id, options, results])
+
+    print('TEST: TRUNCATE', grid_search_options)
+    results = run_test(lambda: ExploitTruncationSelection(), grid_search_options, show=True)
+    append_results(0, grid_search_options, results)
+
+    for i, options in enumerate(util.grid_search_named(grid_search_options)):
+        def make_exploiter():
+            return ExploitUcb(**{k: options[k] for k in ['subset_mode', 'incr_mode', 'reset_mode', 'select_mode', 'normalise_mode']})
+        print(f'TEST UCB: {i}', options)
+        r = run_test(make_exploiter, options, show=True, test_scores=results[0], test_converges=results[1])
+        append_results(0, options, r)
+
+    print('\nDONE!\n')
+    with open('results.pickle', 'wb') as file:
+        pickle.dump(test_log, file)
