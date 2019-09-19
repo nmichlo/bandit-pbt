@@ -59,7 +59,7 @@ def confidence_interval(data, confidence=0.95):
     import numpy as np
     # calculate
     if len(data) < 2:
-        return np.array(np.nan)
+        return np.array(0)
     h = sem(data) * t.ppf((1 + confidence) / 2, len(data) - 1)
     return h  # - np.array([-h, +h]) # + mean(data)
 

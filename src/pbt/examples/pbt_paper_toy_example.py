@@ -1,3 +1,4 @@
+import comet_ml
 import pickle
 from pprint import pprint
 from uuid import uuid4
@@ -5,6 +6,7 @@ from typing import NamedTuple
 import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+import os
 
 import util
 from pbt.strategies import ExploitUcb, ExploitTruncationSelection
@@ -211,6 +213,11 @@ def run_test(make_exploiter, options=None, show=True, test_scores=None, test_con
                 s, c = np.array(scores), np.array(converges)
                 itr.set_description(f's={s.mean().round(6)} (±{util.confidence_interval(s).round(6)}) | c={c.mean().round(4)} (±{util.confidence_interval(c).round(4)})')
 
+    # SCORES:       Maximum score acheived by each population
+    # CONVERGES:    Minimum number of steps to converge for each population
+    # SCORE_SEQ:    Average score at each time step
+    scores, converges, score_seq = np.array(scores), np.array(converges), np.array(score_seq)
+
     return scores, converges, score_seq
 
 
@@ -244,7 +251,7 @@ if __name__ == '__main__':
         append_results(0, options, r)
 
     print('\nDONE!\n')
-    save_path = f'results_{uuid4()}.pickle'
+    save_path = f'../../../results/results_toy_{uuid4()}.pickle'
     print(f'SAVING RESULTS TO: {save_path}')
     with open(save_path, 'wb') as file:
         pickle.dump(test_log, file)

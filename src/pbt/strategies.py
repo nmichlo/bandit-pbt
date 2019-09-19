@@ -128,15 +128,17 @@ class ExploitUcb(ExploitTruncationSelection):
         self._subset_mode = subset_mode
         self._normalise_mode = normalise_mode
 
-    def _member_on_step(self, member):
-        if self._incr_mode == 'stepped':
-            self._step_counts[member] += 1
+    # THESE TWO STRATEGIES ARE EFFECTIVELY THE SAME
     def _member_on_explored(self, member):
         if self._reset_mode in {'explored_or_exploited', 'explored'}:
             self._step_counts[member] = 0
     def _member_on_exploited(self, member):
         if self._reset_mode in {'explored_or_exploited', 'exploited'}:
             self._step_counts[member] = 0
+
+    def _member_on_step(self, member):
+        if self._incr_mode == 'stepped':
+            self._step_counts[member] += 1
     def _member_on_used_for_exploit(self, member):
         if self._incr_mode == 'exploited':
             self._step_counts[member] += 1
