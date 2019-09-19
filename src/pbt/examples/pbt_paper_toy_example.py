@@ -1,5 +1,6 @@
 import pickle
 from pprint import pprint
+from uuid import uuid4
 from typing import NamedTuple
 import numpy as np
 import matplotlib.pyplot as plt
@@ -243,7 +244,9 @@ if __name__ == '__main__':
         append_results(0, options, r)
 
     print('\nDONE!\n')
-    with open('results.pickle', 'wb') as file:
+    save_path = f'results_{uuid4()}.pickle'
+    print(f'SAVING RESULTS TO: {save_path}')
+    with open(save_path, 'wb') as file:
         pickle.dump(test_log, file)
 
 
