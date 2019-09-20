@@ -81,6 +81,11 @@ ray.init(address=os.environ["RAY_ADDRESS"])
   # Activate globally
   pyenv global miniconda3-latest
   ```
+  
+  Fix conda ssl errors
+  ```shell script
+  conda install -c conda-forge certifi
+  ```
 
 
 - [Enlarge Git Pull Buffer](https://stackoverflow.com/questions/38378914/git-error-rpc-failed-curl-56-gnutls) (If installing PyTorch from source):

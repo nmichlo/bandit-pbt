@@ -1,3 +1,8 @@
+import dotenv
+
+# LOAD ENV
+dotenv.load_dotenv(dotenv.find_dotenv(), verbose=True)
+
 import comet_ml
 import pickle
 from pprint import pprint
@@ -12,6 +17,68 @@ import util
 from pbt.strategies import ExploitUcb, ExploitTruncationSelection
 from pbt.pbt import Member, Population
 import scipy.stats
+
+import multiprocessing
+
+
+# ========================================================================= #
+# SYSTEM                                                                    #
+# ========================================================================= #
+
+
+class ToyExperimentLogger(object):
+    def __init__(self, experiment, is_ucb=True):
+        self.is_ucb = is_ucb
+        # COMET.ML
+        self._exp = experiment
+        # TOY-EXAMPLE: the type of member
+        # EXPLOIT-UCB: exploitation strategy
+        # PBT: pbt or ray-pbt
+        self._exp.add_tags(['toy-example', 'exploit-ucb' if self.is_ucb else 'exploit-truncation', 'pbt'])
+        self._exp.set_step(0)
+
+    def log_options(self, options, print_=True):
+        params = {
+            # EXPERIMENT
+            'steps': options['steps'],
+            'n': options['n'],
+            'repeats': options['repeats'],
+            'steps_till_ready': options['steps_till_ready'],
+            # UCB
+            **({
+                   'ucb_select_mode': options['select_mode'],
+                   'ucb_reset_mode': options['reset_mode'],
+                   'ucb_incr_mode': options['incr_mode'],
+                   'ucb_subset_mode': options['subset_mode'],
+                   'ucb_normalise_mode': options['normalise_mode'],
+                    **({'ucb_c': options['c']} if 'c' in options else {}),
+               } if self.is_ucb else {})
+        }
+        if print_:
+            print('\n#', '=' * 100, "#")
+            print(params)
+            print('#', '=' * 100, "#\n")
+        self._exp.log_parameters(params)
+        return params
+
+    def log_averages(self, name, values, values_target=None):
+        values = np.array(values)
+        self._exp.log_metrics({
+            f'ave_{name}': np.average(values),
+            f'ave_{name}_confidence': util.confidence_interval(values),
+        })
+        if values_target is not None:
+            values_target = np.array(values_target)
+            s_t, s_p = np.nan_to_num(scipy.stats.ttest_ind(values, values_target, equal_var=False))
+            self._exp.log_metrics({
+                f'ave_{name}_t_value': s_t,
+                f'ave_{name}_p_value': s_p,
+            })
+
+    def end(self):
+        # FINISH THE EXPERIMENT
+        self._exp.end()
+        self._exp = None
 
 
 # ========================================================================= #
@@ -121,6 +188,11 @@ def make_plot(ax_col, options, exploiter, steps=200, exploit=True, explore=True,
     return score, time_to_converge, scores.max(axis=0), len(population)
 
 
+# ========================================================================== #
+# SAME AS PBT PAPER                                                          #
+# ========================================================================== #
+
+
 def run_dual_test():
 
     options = {
@@ -130,7 +202,7 @@ def run_dual_test():
     }
 
     # REPEAT EXPERIMENT N TIMES
-    n = 150
+    n = 10
 
     k, pop_size = 2, None
     scores, converges, score_seq = [], [], np.zeros((k, options['steps']))
@@ -140,8 +212,8 @@ def run_dual_test():
 
     with tqdm(range(n)) as itr:
         for i in itr:
-            score_0, converge_time_0, score_seq_0, pop_len0 = make_plot(axs[:, 0], options, ExploitTruncationSelection, steps=options["steps"], exploit=True, explore=True, title='PBT Trunc Sel')
-            score_1, converge_time_1, score_seq_1, pop_len1 = make_plot(axs[:, 1], options, ExploitUcb,                 steps=options["steps"], exploit=True, explore=True, title='PBT Ucb Sel')
+            score_0, converge_time_0, score_seq_0, pop_len0 = make_plot(axs[:, 0], options, ExploitTruncationSelection(), steps=options["steps"], exploit=True, explore=True, title='PBT Trunc Sel')
+            score_1, converge_time_1, score_seq_1, pop_len1 = make_plot(axs[:, 1], options, ExploitUcb(),                 steps=options["steps"], exploit=True, explore=True, title='PBT Ucb Sel')
 
             scores.append([score_0, score_1])
             converges.append([converge_time_0, converge_time_1])
@@ -158,7 +230,7 @@ def run_dual_test():
             s_t, s_p = scipy.stats.ttest_ind(*s.T, equal_var=False)
             c_t, c_p = scipy.stats.ttest_ind(*c.T, equal_var=False)
 
-            itr.set_description(f's={s.mean(axis=0).round(4)} [t,p]={np.around([s_t, s_p], 2)} | c={c.mean(axis=0).round(2)} [t,p]={np.around([c_t, c_p], 2)}')
+            itr.set_description(f's={s.mean(axis=0).round(6)} [t,p]={np.around([s_t, s_p], 4)} | c={c.mean(axis=0).round(4)} [t,p]={np.around([c_t, c_p], 4)}')
 
     scores, converges, score_seq = np.array(scores), np.array(converges), np.array(score_seq)
     fig.show()
@@ -172,18 +244,38 @@ def run_dual_test():
     fig.show()
 
 
-def run_test(make_exploiter, options=None, show=True, test_scores=None, test_converges=None):
+# if __name__ == '__main__':
+#     run_dual_test()
+
+
+# ========================================================================== #
+# RUN EXPERIMENTS                                                            #
+# ========================================================================== #
+
+POOL = multiprocessing.Pool(multiprocessing.cpu_count()-1)
+
+def run_experiment(make_exploiter, options=None, show=True, test_scores=None, test_converges=None, test_seq=None):
+    is_ucb = isinstance(make_exploiter(), ExploitUcb)
+
+    EXP = comet_ml.Experiment()
+    EXP_HELPER = ToyExperimentLogger(EXP, is_ucb=is_ucb)
+
+    # OPTIONS
     options = {**{
         'steps': 50, 'n': 10, 'steps_till_ready': 2, 'exploration_scale': 0.1,
         'exploit': True, 'explore': True, 'repeats': 100,
     }, **(options or {})}
+    EXP_HELPER.log_options(options)
+    print('OPTIONS:', options)
 
-    # stats
+    # LOOP VARS
     scores, converges, score_seq = [], [], np.zeros(options['steps'])
-    # iterator
     itr = (tqdm(range(options['repeats'])) if show else range(options['repeats']))
 
+    # LOOP
     for i in itr:
+        EXP.set_step(i+1)
+
         # Members
         population = Population([
             *[ToyMember(h=ToyHyperParams(np.random.rand(2) * 0.5, 0.01), theta=np.array([.9, .9])) for i in range(options['n'])],
@@ -218,36 +310,53 @@ def run_test(make_exploiter, options=None, show=True, test_scores=None, test_con
     # SCORE_SEQ:    Average score at each time step
     scores, converges, score_seq = np.array(scores), np.array(converges), np.array(score_seq)
 
+    # LOG
+    EXP_HELPER.log_averages('max_score', scores, test_scores)
+    EXP_HELPER.log_averages('converge_time', converges, test_converges)
+
     return scores, converges, score_seq
 
 
-if __name__ == '__main__':
+def run_tests():
     grid_search_options = dict(
-        select_mode=['ucb', 'ucb_sample'],  #, 'uniform'},
+        select_mode=['ucb'], #, 'ucb_sample'],  #, 'uniform'}, # UCB SAMPLE IS USELESS
         reset_mode=['exploited', 'explored_or_exploited', 'explored'],
         incr_mode=['stepped', 'exploited'],
         subset_mode=['all', 'top', 'exclude_bottom'],
         normalise_mode=['population', 'subset'],
+        c=[0.05, 0.1, 0.2, 0.5, 1.0],
         # test options
-        steps=50,
+        steps=20,
         n=20,
-        repeats=5000,
+        repeats=3000,
         steps_till_ready=2,
     )
 
+    # HELPER
     test_log = []
     def append_results(id, options, results):
         test_log.append([id, options, results])
 
-    print('TEST: TRUNCATE', grid_search_options)
-    results = run_test(lambda: ExploitTruncationSelection(), grid_search_options, show=True)
+    # GRID SEARCH OPTIONS
+    search_options = list(enumerate(util.grid_search_named(grid_search_options)))
+    print(f'[GRID SEARCH PERMUTATIONS]: {len(search_options)}')
+
+    # FLITER SEARCH OPTIONS
+    exclude_options = []
+    keys = ['select_mode', 'reset_mode', 'incr_mode', 'subset_mode', 'normalise_mode', 'c']
+    exclude_options = {tuple(s[k] for k in keys) for s in exclude_options}
+    search_options = [(i, s) for i, s in search_options if tuple(s[k] for k in keys) not in exclude_options]
+    print(f'[GRID SEARCH REMAINING]: {len(search_options)}')
+
+    # RUN BASELINE EXPERIMENT
+    results = run_experiment(lambda: ExploitTruncationSelection(), grid_search_options, show=True)
     append_results(0, grid_search_options, results)
 
-    for i, options in enumerate(util.grid_search_named(grid_search_options)):
+    # RUN EXPERIMENTS
+    for i, options in tqdm(search_options):
         def make_exploiter():
-            return ExploitUcb(**{k: options[k] for k in ['subset_mode', 'incr_mode', 'reset_mode', 'select_mode', 'normalise_mode']})
-        print(f'TEST UCB: {i}', options)
-        r = run_test(make_exploiter, options, show=True, test_scores=results[0], test_converges=results[1])
+            return ExploitUcb(**{k: options[k] for k in ['subset_mode', 'incr_mode', 'reset_mode', 'select_mode', 'normalise_mode', 'c']})
+        r = run_experiment(make_exploiter, options, show=True, test_scores=results[0], test_converges=results[1])
         append_results(0, options, r)
 
     print('\nDONE!\n')
@@ -257,3 +366,59 @@ if __name__ == '__main__':
         pickle.dump(test_log, file)
 
 
+if __name__ == '__main__':
+    os.environ['COMET_PROJECT_NAME'] = 'improving-pbt-toy-examples-fixes'
+    # os.environ['COMET_DISABLED'] = '1'
+    run_tests()
+
+
+# ========================================================================== #
+# UPLOAD OLD SAVED EXPERIMENTS                                               #
+# ========================================================================== #
+
+
+def upload_experiment(
+        id, options,
+        scores, converges, score_seq,
+        trunc_scores=None, trunc_converges=None, trunc_score_seq=None, is_ucb=True
+):
+    assert len(scores) == len(converges)
+    EXP = comet_ml.OfflineExperiment(
+        # DISABLE
+        disabled=False,
+        # CODE, ENV, GIT
+        log_code=False,
+        log_env_details=False,
+        log_git_metadata=False,
+        log_git_patch=False,
+        # HOST, GPU, CPU
+        log_env_gpu=False,
+        log_env_host=False,
+        log_graph=False,
+    )
+    logger = ToyExperimentLogger(EXP, is_ucb=is_ucb)
+    logger.log_options(options)
+    logger.log_averages('max_score', scores, trunc_scores)
+    logger.log_averages('converge_time', converges, trunc_converges)
+    logger.end()
+
+
+def upload_results_to_comet(test_log):
+    # MAKE DIRS
+    if not os.path.isdir(os.environ['COMET_OFFLINE_DIRECTORY']):
+        print('[MAKING DIRS]', os.environ['COMET_OFFLINE_DIRECTORY'])
+        os.makedirs(os.environ['COMET_OFFLINE_DIRECTORY'], exist_ok=True)
+
+    # LOAD TRUNCATION SELECTION DATA
+    trunc_id, trunc_options, (trunc_scores, trunc_converges, trunc_score_seq) = test_log[0]
+    upload_experiment(trunc_id, trunc_options, trunc_scores, trunc_converges, trunc_score_seq, is_ucb=False)
+
+    # LOAD UCB DATA
+    for id, options, (scores, converges, score_seq) in tqdm(test_log[1:]):
+        upload_experiment(id, options, scores, converges, score_seq, trunc_scores, trunc_converges, trunc_score_seq, is_ucb=True)
+
+
+# if __name__ == '__main__':
+#     with open('../../../results/results_toy-pbt_ucb-vs-trunv_grid-search_5000iters.pickle', 'rb') as file:
+#         test_log = pickle.load(file)
+#         upload_results_to_comet(test_log)
