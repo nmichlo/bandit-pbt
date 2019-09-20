@@ -109,10 +109,10 @@ class ExploitBinaryTournament(Exploiter):
 # ========================================================================= #
 
 class ExploitUcb(ExploitTruncationSelection):
-    def __init__(self, bottom_ratio=0.2, c=0.1, subset_mode='all', incr_mode='stepped', reset_mode='exploited', select_mode='truncate', normalise_mode='subset'):
+    def __init__(self, bottom_ratio=0.2, top_ratio=0.2, c=0.1, subset_mode='all', incr_mode='exploited', reset_mode='explored_or_exploited', select_mode='ucb', normalise_mode='population'):
         # >>> high c is BAD
         # >>> low c is BAD
-        super().__init__(bottom_ratio=bottom_ratio, top_ratio=0.2)
+        super().__init__(bottom_ratio=bottom_ratio, top_ratio=top_ratio)
         # UCB
         self._step_counts = defaultdict(int)
         self._c = c

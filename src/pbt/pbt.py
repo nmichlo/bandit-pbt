@@ -50,6 +50,9 @@ class IPopulation(abc.ABC):
     def __iter__(self) -> Iterator['IMember']:
         return self.members.__iter__()
 
+    def __contains__(self, member):
+        return self.members.__contains__(member)
+
     @property
     @abc.abstractmethod
     def members(self) -> List['IMember']:
@@ -201,15 +204,14 @@ class Population(IPopulation):
         exploited = member.exploit(self)
         if exploited:
             self.exploiter._member_on_used_for_exploit(exploited)
-        self.exploiter._member_on_exploited(member)
+            self.exploiter._member_on_exploited(member)
         return exploited
 
     def _explore(self, member) -> bool:
         explored = member.explore(self)
-        self.exploiter._member_on_explored(member)
+        if explored:
+            self.exploiter._member_on_explored(member)
         return explored
-
-
 
 
 # ========================================================================= #
@@ -409,26 +411,28 @@ class Member(IMember):
 
     def exploit(self, population: 'IPopulation') -> bool:
         member = population.exploiter.exploit(population, self)
-        # only use the exploited member's parameters if it is not the same.
-        if member is not None:
-            if self != member:
-                self._load_theta(member.id)
-                self._exploited = population.members.index(member)
-                return True
-            else:
-                print(f"Member exploited itself, problem with exploiter? {type(population.exploiter).__name__}")
-                return False
-        return False
+        # Skip exploit if None
+        if member is None:
+            return False
+        # Skip exploit is the Same
+        if member is self:
+            print(f"WARNING: Exploited member is itself. ({type(population.exploiter).__name__})")
+            return False
+        # Copy parameters & hyperparameters
+        self._load_theta(member.id)
+        self._h = member.copy_h()
+        # Append to history on next step
+        self._exploited = population.members.index(member)
+        # Success
+        return True
 
     def explore(self, population: 'IPopulation') -> bool:
         exploring_h = self._explore(population)
-        # only use the explored hyper-parameters if they are valid.
-        if exploring_h is not None:
-            self._h = exploring_h
-            return True
-        else:
-            print("Explore values are None, problem with exploration exploiter?")
-            return False
+        assert exploring_h is not None, "Explore values are None, problem with explorer?"
+        # Set hyperparameters
+        self._h = exploring_h
+        # Success
+        return True
 
     @abc.abstractmethod
     def _is_ready(self, population: 'IPopulation') -> bool:
