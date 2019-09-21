@@ -34,8 +34,7 @@ from tqdm import tqdm
 from helper import util
 from uuid import uuid4
 
-from pbt.examples.pbt_local_mnist_example import ToyHyperParams
-from pbt.examples.pbt_paper_toy_example import ToyMember
+from pbt.examples.pbt_paper_toy_example import ToyMember, ToyHyperParams
 from pbt.pbt import Population
 from pbt.strategies import ExploitUcb, ExploitTruncationSelection
 import numpy as np
