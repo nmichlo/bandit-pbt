@@ -19,6 +19,12 @@
 #  SOFTWARE.
 
 
+import dotenv
+
+# LOAD ENV
+dotenv.load_dotenv(dotenv.find_dotenv(), verbose=True)
+
+
 import os
 import pickle
 
@@ -174,7 +180,7 @@ def run_tests():
         # test options
         steps=20,
         n=20,
-        repeats=5000,
+        repeats=2500,
         steps_till_ready=2,
     )
 
@@ -213,7 +219,7 @@ def run_tests():
 
 
 if __name__ == '__main__':
-    os.environ['COMET_PROJECT_NAME'] = 'improving-pbt-toy-examples-fixes-2'
+    os.environ['COMET_PROJECT_NAME'] = 'improving-pbt-toy-examples-fixes-3'
     run_tests()
 
 

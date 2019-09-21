@@ -109,7 +109,7 @@ class ExploitBinaryTournament(Exploiter):
 # ========================================================================= #
 
 class ExploitUcb(ExploitTruncationSelection):
-    def __init__(self, bottom_ratio=0.2, top_ratio=0.2, c=0.1, subset_mode='all', incr_mode='exploited', reset_mode='explored_or_exploited', select_mode='ucb', normalise_mode='population'):
+    def __init__(self, bottom_ratio=0.2, top_ratio=0.2, c=0.1, subset_mode='all', incr_mode='exploited', reset_mode='explored_or_exploited', select_mode='ucb', normalise_mode='population', debug=False):
         # >>> high c is BAD
         # >>> low c is BAD
         super().__init__(bottom_ratio=bottom_ratio, top_ratio=top_ratio)
@@ -127,6 +127,8 @@ class ExploitUcb(ExploitTruncationSelection):
         self._reset_mode = reset_mode
         self._subset_mode = subset_mode
         self._normalise_mode = normalise_mode
+        # debug
+        self.debug = debug
 
     def _visits_incr(self, member):
         assert isinstance(member, IMember)
@@ -134,30 +136,47 @@ class ExploitUcb(ExploitTruncationSelection):
 
     def _visits_reset(self, member):
         assert isinstance(member, IMember)
-        self.__step_counts[member] += 1
+        self.__step_counts[member] = 0
 
     def _visits_get(self, member) -> int:
         assert isinstance(member, IMember)
         return self.__step_counts[member]
 
+    def _debug_message(self, message, member=None):
+        if self.debug:
+            extra = list(self.__step_counts.keys()).index(member) if member and member in self.__step_counts else ''
+            print(f'{message:>10s}:', list(self.__step_counts.values()), extra)
+
     # THESE TWO STRATEGIES ARE EFFECTIVELY THE SAME
     def _member_on_explored(self, member):
+        self._debug_message('EXPLORE', member)
         if self._reset_mode in {'explored_or_exploited', 'explored'}:
             self._visits_reset(member)
+            self._debug_message('EXPLORED', member)
     def _member_on_exploit_replaced(self, member):
+        self._debug_message('REPLACE', member)
         if self._reset_mode in {'explored_or_exploited', 'exploited'}:
             self._visits_reset(member)
+            self._debug_message('REPLACED', member)
 
     def _member_on_step(self, member):
         if self._incr_mode == 'stepped':
             self._visits_incr(member)
+            self._debug_message('STEPPED', member)
     def _member_on_used_for_exploit(self, member):
+        self._debug_message('EXPLOIT', member)
         if self._incr_mode == 'exploited':
             self._visits_incr(member)
+            self._debug_message('EXPLOITED', member)
 
     def _choose_replacement(self, mbrs_low: List['IMember'], mbrs_mid: List['IMember'], mbrs_top: List['IMember'], mbrs: List['IMember'], population: 'IPopulation', member: 'IMember') -> 'IMember':
         assert mbrs_low + mbrs_mid + mbrs_top == mbrs
         # TODO: fix floating point for calculating top and bottom indices
+
+        if self.debug:
+            print()
+            self._debug_message('REPLACING', member)
+            print()
 
         if self._subset_mode == 'top':
             members = mbrs_top

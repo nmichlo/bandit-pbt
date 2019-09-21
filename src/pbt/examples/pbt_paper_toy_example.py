@@ -1,22 +1,12 @@
-import dotenv
 
-# LOAD ENV
-dotenv.load_dotenv(dotenv.find_dotenv(), verbose=True)
-
-import comet_ml
-import pickle
-from uuid import uuid4
 from typing import NamedTuple
 import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
-import os
 
-from helper import util
 from pbt.strategies import ExploitUcb, ExploitTruncationSelection
 from pbt.pbt import Member, Population
 import scipy.stats
-import multiprocessing
 
 
 # ========================================================================= #
@@ -133,14 +123,14 @@ def make_plot(ax_col, options, exploiter, steps=200, exploit=True, explore=True,
 
 def run_dual_test():
 
+    # REPEAT EXPERIMENT N TIMES
+    n = 10
+
     options = {
-        "steps": 45,
+        "steps": 30,
         "steps_till_ready": 2,
         "exploration_scale": 0.1,
     }
-
-    # REPEAT EXPERIMENT N TIMES
-    n = 10
 
     k, pop_size = 2, None
     scores, converges, score_seq = [], [], np.zeros((k, options['steps']))

@@ -214,6 +214,32 @@ class Population(IPopulation):
             self.exploiter._member_on_explored(member)
         return explored
 
+    def print_history(self):
+        n = min(len(m) for m in self.members)
+        histories = [[m[i] for m in self.members] for i in range(n)]
+
+        liniage = [i for i in range(len(self))]
+        curr_liniage = len(self)
+
+        print()
+        for step in histories:
+            assert all(h1.t == h2.t for h1, h2 in zip(step[:-1], step[1:]))
+
+            for i, h in enumerate(step):
+                if h.exploit_id is not None:
+                    liniage[i] = curr_liniage
+                    curr_liniage += 1
+
+            string_a = ''
+            string_b = ''
+            for l, h in zip(liniage, step):
+                string_a += f'{str(l):>3s}: {str(np.around(h.p, 2)):<5s} '
+                string_b += f'    {f"({h.exploit_id})":6s} ' if (h.exploit_id is not None) else ' '*11
+
+            print(f'{str(step[0].t):4s}| {string_a}')
+            print(f'    | {string_b}')
+        print()
+
 
 # ========================================================================= #
 # History                                                                   #
