@@ -4,8 +4,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
-from pbt.strategies import ExploitUcb, ExploitTruncationSelection
-from pbt.pbt import Member, Population
+from tsucb.pbt.strategies import ExploitUcb, ExploitTruncationSelection
+from tsucb.pbt.pbt import Member, Population
 import scipy.stats
 
 

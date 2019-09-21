@@ -25,8 +25,8 @@ import matplotlib.pyplot as plt
 import ray
 from ray.tune.examples.mnist_pytorch_trainable import TrainMNIST
 from tqdm import tqdm
-from pbt.strategies import ExploitUcb, ExploitTruncationSelection
-from pbt.pbt import Member, Population
+from tsucb.pbt.strategies import ExploitUcb, ExploitTruncationSelection
+from tsucb.pbt.pbt import Member, Population
 
 
 # ========================================================================= #

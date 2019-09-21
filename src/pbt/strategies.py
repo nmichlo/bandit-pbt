@@ -23,7 +23,7 @@
 from collections import defaultdict
 from typing import Optional, List
 
-from pbt.pbt import Exploiter, IPopulation, IMember
+from tsucb.pbt.pbt import Exploiter, IPopulation, IMember
 import random
 import numpy as np
 

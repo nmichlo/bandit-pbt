@@ -43,8 +43,8 @@ import copy
 
 # Settings are automatically read from environment variables.
 # https://www.comet.ml/docs/python-sdk/advanced/#comet-configuration-variables
-from pbt.pbt import Member
-from pbt.strategies import ExploitUcb, ExploitTruncationSelection
+from tsucb.pbt.pbt import Member
+from tsucb.pbt.strategies import ExploitUcb, ExploitTruncationSelection
 
 EXP = comet_ml.Experiment(
     disabled=(not settings.ENABLE_COMET_ML),

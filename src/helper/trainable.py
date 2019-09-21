@@ -21,67 +21,9 @@
 
 
 import ray
-import torch
-from ray.experimental.sgd.pytorch import PyTorchTrainable, PyTorchTrainer
-import torch.optim
-from helper import util, datasets
-
-
-# ========================================================================= #
-# HELPER                                                                    #
-# ========================================================================= #
-from helper.models import ConvNetExample
-
-
-def create_loss(name, **kwargs):
-    losses = util.get_module_classes(torch.nn.modules.loss, filter_nonlocal=True)
-    if name in losses:
-        return losses[name](**kwargs)
-    else:
-        raise KeyError(f'Unsupported loss function: "{name}" Choose one of: {list(losses.keys())}')
-
-
-def create_optimizer(name, params, **kwargs):
-    optimizers = util.get_module_classes(torch.optim)
-    if name in optimizers:
-        if name == 'SGD':
-            kwargs.setdefault('lr',  1e-4)
-        return optimizers[name](params, **kwargs)
-    else:
-        raise KeyError(f'Unsupported optimizer: "{name}" Choose one of: {list(optimizers.keys())}')
-
-
-def create_dataset(name, **kwargs):
-    allowed = { # datasets with the same options. # 'PhotoTour', 'USPS',
-        'CIFAR10',                                             # 32x32x3 # 10
-        'CIFAR100',                                            # 32x32x3 # 100
-        'MNIST', 'EMNIST', 'FashionMNIST', 'KMNIST', 'QMNIST', # 28x28x1 # 10
-    }
-    if name in allowed:
-        assert not kwargs, 'dataset arguments not allowed'
-        return datasets.get_datasets(name)
-    else:
-        raise KeyError(f'Unsupported dataset: "{name}" Choose one of: {list(allowed)}')
-
-def get_dataset_info(name):
-    return {
-        'CIFAR10':      ((32, 32, 3), 10),
-        'CIFAR100':     ((32, 32, 3), 100),
-        'MNIST':        ((28, 28, 1), 10),
-        'EMNIST':       ((28, 28, 1), 10),
-        'FashionMNIST': ((28, 28, 1), 10),
-        'KMNIST':       ((28, 28, 1), 10),
-        'QMNIST':       ((28, 28, 1), 10),
-    }[name]
-
-
-def create_model(arch, dataset_name, **kwargs):
-    if arch == 'example':
-        assert not kwargs, 'model arguments not allowed'
-        size, classes = get_dataset_info(dataset_name)
-        return ConvNetExample(num_classes=classes)
-    else:
-        raise KeyError(f'Unsupported model: "{arch}" Choose one of: {["example"]}')
+from ray.experimental.sgd.tf import TFTrainable, TFTrainer
+import tensorflow_datasets as tfds
+from tsucb.helper import models
 
 
 # ========================================================================= #
@@ -89,46 +31,57 @@ def create_model(arch, dataset_name, **kwargs):
 # ========================================================================= #
 
 
-class GeneralTrainable(PyTorchTrainable):
+def _model_creator(config):
+    if 'example' == config['model']:
+        if 'mnist' == config['dataset']:
+            model = models.create_mnist_model('channels_first' if config['use_gpu'] else 'channels_last')
+        else:
+            raise KeyError('Only dataset="mnist" is currently supported for model="example"')
+    else:
+        raise KeyError('Only model="example" is currently available.')
+
+    model.compile(
+        optimizer=config['optimizer'],
+        loss=config['loss'],
+        metrics=config.get('metrics', [config['loss']])
+    )
+
+    print(model._feed_input_names)
+
+    return model
+
+
+def _data_creator(config, return_info=False):
+    """
+    Examples: iris, cifar10, cifar100, mnist, emnist, kmnist, fashion_mnist
+    """
+    data, info = tfds.load(config['dataset'], with_info=True)
+    if return_info:
+        return info
+    else:
+        return data['train'], data['test']
+
+
+class GeneralTrainable(TFTrainable):
+
+    def __init__(self, config: dict = None, logger_creator=None):
+        dataset_info = _data_creator(config, return_info=True)
+        print(f'\n[DATASET]:\n{dataset_info}\n')
+        # SET BATCH SIZE DEFAULTS
+        fit_config = config.setdefault('fit_config', {})
+        evaluate_config = config.setdefault('evaluate_config', {})
+        fit_config.setdefault('steps_per_epoch', dataset_info.splits['train'].num_examples // config['batch_size'])
+        evaluate_config.setdefault('steps', dataset_info.splits['test'].num_examples // config['batch_size'])
+        # INITIALISE PARENT
+        super().__init__(config=config, logger_creator=logger_creator)
+
     def _setup(self, config):
-
-        def _model_creator(config):
-            args = config.get('model_options', {})
-            return create_model(config['model'], config['dataset'], **args)
-
-        def _optimizer_creator(model, config):
-            """Returns (criterion/loss, optimizer)"""
-            criterion = create_loss(
-                config['loss'],
-                **config.get('loss_options', {})
-            )
-
-            optimizer_args = config.get('optimizer_options', {})
-            optimizer_args.setdefault('lr', 1e-4)
-
-            optimizer = create_optimizer(
-                config['optimizer'],
-                model.parameters(),
-                **optimizer_args,
-            )
-            return criterion, optimizer
-
-        def _data_creator(config):
-            """Returns (training_set, validation_set)"""
-            return create_dataset(
-                config['dataset'],
-                **config.get('dataset_options', {})
-            )
-
-        self._trainer = PyTorchTrainer(
+        self._trainer = TFTrainer(
             model_creator=_model_creator,
             data_creator=_data_creator,
-            optimizer_creator=_optimizer_creator,
             config=config,
-            num_replicas=config.get('num_replicas', 1),
-            use_gpu=config.get('use_gpu', True),
-            batch_size=config.get('batch_size', 16),
-            backend=config.get('backend', 'auto')
+            num_replicas=config['num_replicas'],
+            use_gpu=config['use_gpu']
         )
 
 
@@ -140,15 +93,15 @@ class GeneralTrainable(PyTorchTrainable):
 ray.init()
 
 trainable = GeneralTrainable(dict(
+    # trainer config
+    batch_size=16,
     model='example',
-    dataset='MNIST',
-    optimizer='SGD',
-    loss='MSELoss',
-
-    optimizer_options={},
-    loss_options={},
-    model_options={},
-    dataset_options={},
+    dataset='mnist',
+    optimizer='sgd',
+    loss='mse',
+    # trainable config
+    use_gpu=True,
+    num_replicas=1,
 ))
 
 trainable.train()

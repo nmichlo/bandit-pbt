@@ -104,6 +104,58 @@ def print_module_class_heirarchy(module, root_cls_name):
 
 
 # ========================================================================= #
+# STRINGS                                                                   #
+# ========================================================================= #
+
+
+def print_separator(text, width=100):
+    """
+    function wraps text in a ascii box.
+    """
+    import textwrap
+    import pprint
+    w = width-4
+    lines = []
+    lines.append(f'\n# {"="*w} #')
+    if type(text) != str:
+        text = pprint.pformat(text, width=w)
+    for line in text.splitlines():
+        for wrapped in textwrap.wrap(line, w, tabsize=4):
+            lines.append(f'# {wrapped:{w}s} #')
+    lines.append(f'# {"="*w} #\n')
+    print('\n'.join(lines))
+
+
+# ========================================================================= #
+# TIMINGS                                                                   #
+# ========================================================================= #
+
+
+def min_time_elapsed(func_or_seconds, seconds=None):
+    """
+    Decorator that only runs a function if the minimum time has elapsed since the last run.
+    """
+    import time
+    last_time = 0
+    def decorator(func):
+        def inner(*args, **kwargs):
+            nonlocal last_time
+            curr_time = time.time()
+            if last_time + seconds >= curr_time:
+                last_time = curr_time
+                return func(*args, **kwargs)
+            return None
+        return inner
+    if callable(func_or_seconds):
+        assert isinstance(seconds, (int, float))
+        return decorator(func_or_seconds)
+    else:
+        assert isinstance(func_or_seconds, (int, float))
+        seconds = func_or_seconds
+        return decorator
+
+
+# ========================================================================= #
 # END                                                                       #
 # ========================================================================= #
 
