@@ -57,19 +57,19 @@ def run_experiment(args: UcbExperimentArgs):
     EXP.log_parameters(args.to_dict())
 
     @util.min_time_elapsed(1.0)
-    def log_step(score, converge_time):
-        print('logged')
+    def log_step(i, score, converge_time):
         EXP.log_metrics({
             f'max_score': score,
             f'converge_time': converge_time,
         })
+        tqdm.write(f'[EXPERIMENT {i+1:05d}] score: {score:8f} converge_time: {converge_time:8f}')
 
     # LOOP VARS
     scores, converge_times, avg_scores_per_step = [], [], np.zeros(args.pbt_steps)
 
     # LOOP
-    for i in tqdm(range(args.experiment_repeats), disable=None):
-        EXP.set_step(i+1)
+    for i in tqdm(range(args.experiment_repeats), 'experiment', mininterval=1):
+        EXP.set_step(i)
 
         # MEMBERS
         population = Population([
@@ -90,7 +90,7 @@ def run_experiment(args: UcbExperimentArgs):
         avg_scores_per_step += population.scores_history.max(axis=0) * (1 / args.pbt_steps)
 
         # LOG STEP
-        log_step(score, converge_time)
+        log_step(i, score, converge_time)
 
     # SCORES:       Maximum score acheived by each population
     # CONVERGES:    Minimum number of steps to converge for each population
@@ -98,12 +98,14 @@ def run_experiment(args: UcbExperimentArgs):
     scores, converge_times, avg_scores_per_step = np.array(scores), np.array(converge_times), np.array(avg_scores_per_step)
 
     # LOG
+    ave_score, ave_scores_conf = np.average(scores), util.confidence_interval(scores, confidence=0.95)
+    ave_conv_t, ave_conv_t_conf = np.average(converge_times), util.confidence_interval(converge_times, confidence=0.95)
     EXP.log_metrics({
-        'ave_max_score': np.average(scores),
-        'ave_max_score_confidence_95': util.confidence_interval(scores, confidence=0.95),
-        'ave_converge_time': np.average(converge_times),
-        'ave_converge_time_confidence_95': util.confidence_interval(converge_times, confidence=0.95),
+        'ave_max_score': ave_score,     'ave_max_score_confidence_95': ave_scores_conf,
+        'ave_converge_time': ave_conv_t, 'ave_converge_time_confidence_95': ave_conv_t_conf,
     })
+    tqdm.write(f'[RESULT] ave_max_score:     {ave_score:8f} (±{ave_scores_conf:8f})')
+    tqdm.write(f'[RESULT] ave_converge_time: {ave_score:8f} (±{ave_scores_conf:8f})')
 
     # LOG - PLOT
     fig, ax = plt.subplots(1, 1)

@@ -109,9 +109,9 @@ class UcbExperimentArgs(NamedTuple):
 
         parser = argparse.ArgumentParser()
         # EXPERIMENT
-        parser.add_argument('--experiment-repeats',      type=argparse_number_range(1, float('inf'), int),                           default=defaults.get('experiment_repeats', 1))
+        parser.add_argument('-n', '--experiment-repeats',type=argparse_number_range(1, float('inf'), int),                           default=defaults.get('experiment_repeats', 1))
         # PBT
-        parser.add_argument('--pbt-steps',               type=argparse_number_range(1, float('inf'), int),                           default=defaults.get('pbt_steps', 20))
+        parser.add_argument('--pbt-steps',               type=argparse_number_range(1, float('inf'), int),                           default=defaults.get('pbt_steps', 50))
         parser.add_argument('--pbt-members',             type=argparse_number_range(1, float('inf'), int),                           default=defaults.get('pbt_members', 10))
         parser.add_argument('--pbt-members-ready-after', type=argparse_number_range(1, float('inf'), int),                           default=defaults.get('pbt_members_ready_after', 2))
         parser.add_argument('--pbt-exploiter',           type=str.lower, choices=['ucb', 'ts'],                                      default=defaults.get('pbt_exploiter', 'ucb'))

@@ -141,7 +141,7 @@ def min_time_elapsed(func_or_seconds, seconds=None):
         def inner(*args, **kwargs):
             nonlocal last_time
             curr_time = time.time()
-            if last_time + seconds >= curr_time:
+            if last_time + seconds <= curr_time:
                 last_time = curr_time
                 return func(*args, **kwargs)
             return None
