@@ -114,7 +114,7 @@ class ExploitUcb(ExploitTruncationSelection):
         # >>> low c is BAD
         super().__init__(bottom_ratio=bottom_ratio, top_ratio=top_ratio)
         # UCB
-        self._step_counts = defaultdict(int)
+        self.__step_counts = defaultdict(int)
         self._c = c
         # MODES
         assert select_mode in {'ucb', 'ucb_sample', 'uniform'}
@@ -128,20 +128,32 @@ class ExploitUcb(ExploitTruncationSelection):
         self._subset_mode = subset_mode
         self._normalise_mode = normalise_mode
 
+    def _visits_incr(self, member):
+        assert isinstance(member, IMember)
+        self.__step_counts[member] += 1
+
+    def _visits_reset(self, member):
+        assert isinstance(member, IMember)
+        self.__step_counts[member] += 1
+
+    def _visits_get(self, member) -> int:
+        assert isinstance(member, IMember)
+        return self.__step_counts[member]
+
     # THESE TWO STRATEGIES ARE EFFECTIVELY THE SAME
     def _member_on_explored(self, member):
         if self._reset_mode in {'explored_or_exploited', 'explored'}:
-            self._step_counts[member] = 0
-    def _member_on_exploited(self, member):
+            self._visits_reset(member)
+    def _member_on_exploit_replaced(self, member):
         if self._reset_mode in {'explored_or_exploited', 'exploited'}:
-            self._step_counts[member] = 0
+            self._visits_reset(member)
 
     def _member_on_step(self, member):
         if self._incr_mode == 'stepped':
-            self._step_counts[member] += 1
+            self._visits_incr(member)
     def _member_on_used_for_exploit(self, member):
         if self._incr_mode == 'exploited':
-            self._step_counts[member] += 1
+            self._visits_incr(member)
 
     def _choose_replacement(self, mbrs_low: List['IMember'], mbrs_mid: List['IMember'], mbrs_top: List['IMember'], mbrs: List['IMember'], population: 'IPopulation', member: 'IMember') -> 'IMember':
         assert mbrs_low + mbrs_mid + mbrs_top == mbrs
@@ -150,7 +162,7 @@ class ExploitUcb(ExploitTruncationSelection):
         if self._subset_mode == 'top':
             members = mbrs_top
         elif self._subset_mode == 'exclude_bottom':
-            members = mbrs_mid + mbrs_top # >>> WORSE?
+            members = mbrs_mid + mbrs_top
         elif self._subset_mode == 'all':
             members = mbrs[:]
             members.remove(member)
@@ -170,13 +182,13 @@ class ExploitUcb(ExploitTruncationSelection):
 
         scores = (scores - s_min) / (s_max - s_min + np.finfo(float).eps)
         # normalise steps
-        steps = np.array([self._step_counts[m] for m in members])
+        steps = np.array([self._visits_get(m) for m in members])
         total_steps = np.sum(steps)
         # ucb scores
         ucb_scores = ExploitUcb.ucb1(scores, steps + 1, total_steps + 1, C=self._c)
 
         # mode
-        if self._select_mode == 'ucb':  # >>> WORSE
+        if self._select_mode == 'ucb':
             ucb_ordering = np.argsort(ucb_scores)[::-1]
             return members[ucb_ordering[0]]
         elif self._select_mode == 'ucb_sample':

@@ -201,11 +201,12 @@ class Population(IPopulation):
         return member.is_ready(self)
 
     def _exploit(self, member) -> bool:
-        exploited = member.exploit(self)
-        if exploited:
-            self.exploiter._member_on_used_for_exploit(exploited)
-            self.exploiter._member_on_exploited(member)
-        return exploited
+        exploited_member = member.exploit(self)
+        if exploited_member is not None:
+            self.exploiter._member_on_used_for_exploit(exploited_member)
+            self.exploiter._member_on_exploit_replaced(member)
+            return True
+        return False
 
     def _explore(self, member) -> bool:
         explored = member.explore(self)
@@ -328,12 +329,12 @@ class IMember(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def exploit(self, population: 'IPopulation') -> bool:
+    def exploit(self, population: 'IPopulation') -> Optional['IMember']:
         """
         Update the parameters (theta) of this member with those of
         another member, using various selection strategies.
         :param population: The population that this member belongs to.
-        :return True if another member was successfully exploited.
+        :return The member chosen to replace this one. None if no replacement happened.
         """
         pass
 
@@ -409,22 +410,22 @@ class Member(IMember):
     def is_ready(self, population: 'IPopulation') -> bool:
         return self._is_ready(population)
 
-    def exploit(self, population: 'IPopulation') -> bool:
+    def exploit(self, population: 'IPopulation') -> Optional['IMember']:
         member = population.exploiter.exploit(population, self)
         # Skip exploit if None
         if member is None:
-            return False
+            return None
         # Skip exploit is the Same
         if member is self:
             print(f"WARNING: Exploited member is itself. ({type(population.exploiter).__name__})")
-            return False
+            return None
         # Copy parameters & hyperparameters
         self._load_theta(member.id)
         self._h = member.copy_h()
         # Append to history on next step
         self._exploited = population.members.index(member)
         # Success
-        return True
+        return member
 
     def explore(self, population: 'IPopulation') -> bool:
         exploring_h = self._explore(population)
@@ -496,7 +497,7 @@ class IExploiter(abc.ABC):
     def _member_on_explored(self, member) -> NoReturn:
         pass
 
-    def _member_on_exploited(self, member) -> NoReturn:
+    def _member_on_exploit_replaced(self, member) -> NoReturn:
         pass
 
     def _member_on_used_for_exploit(self, member) -> NoReturn:

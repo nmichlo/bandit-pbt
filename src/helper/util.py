@@ -19,9 +19,11 @@
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
 
+
 # ========================================================================= #
 # util                                                                   #
 # ========================================================================= #
+
 
 def is_iterable(obj):
     if type(obj) in {str}:
@@ -64,7 +66,45 @@ def confidence_interval(data, confidence=0.95):
     return h  # - np.array([-h, +h]) # + mean(data)
 
 
+# ========================================================================= #
+# MODULES                                                                   #
+# ========================================================================= #
 
-# ========================================================================= \#
-# END                                                                       \#
-# ========================================================================= \#
+
+def get_module_objects(module):
+    names = [name for name in dir(module) if not name.startswith('__')]
+    return {name: getattr(module, name) for name in names}
+
+def get_module_type(module, type_name):
+    objects = get_module_objects(module)
+    return {name: obj for name, obj in objects.items() if type(obj).__name__ == type_name}
+
+def get_module_classes(module, filter_nonlocal=False):
+    classes = get_module_type(module, 'type')
+    if filter_nonlocal:
+        classes = {name: cls for name, cls in get_module_type(module, 'type').items() if cls.__module__ == module.__name__}
+    return classes
+def get_module_functions(module): return get_module_type(module, 'function')
+def get_module_modules(module): return get_module_type(module, 'module')
+
+def print_module_class_heirarchy(module, root_cls_name):
+    import inspect
+    # get classes
+    classes = get_module_classes(module)
+    parent_childrens = {}
+    for name, cls in classes.items():
+        (parent,) = cls.__bases__
+        parent_childrens.setdefault(parent.__name__, []).append(name)
+    def recurse(name, depth=0):
+        print('    ' * depth, '-', f'{name:20s}', inspect.signature(classes[name]) if name in classes else '')
+        if name in parent_childrens:
+            for k in parent_childrens[name]:
+                recurse(k, depth+1)
+    recurse(root_cls_name)
+
+
+# ========================================================================= #
+# END                                                                       #
+# ========================================================================= #
+
+

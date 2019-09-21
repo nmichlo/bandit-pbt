@@ -5,7 +5,6 @@ dotenv.load_dotenv(dotenv.find_dotenv(), verbose=True)
 
 import comet_ml
 import pickle
-from pprint import pprint
 from uuid import uuid4
 from typing import NamedTuple
 import numpy as np
@@ -13,7 +12,7 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 import os
 
-import util
+from helper import util
 from pbt.strategies import ExploitUcb, ExploitTruncationSelection
 from pbt.pbt import Member, Population
 import scipy.stats
@@ -252,7 +251,6 @@ def run_dual_test():
 # RUN EXPERIMENTS                                                            #
 # ========================================================================== #
 
-POOL = multiprocessing.Pool(multiprocessing.cpu_count()-1)
 
 def run_experiment(make_exploiter, options=None, show=True, test_scores=None, test_converges=None, test_seq=None):
     is_ucb = isinstance(make_exploiter(), ExploitUcb)
@@ -319,16 +317,16 @@ def run_experiment(make_exploiter, options=None, show=True, test_scores=None, te
 
 def run_tests():
     grid_search_options = dict(
+        c=[0.1, 0.05, 0.2],
         select_mode=['ucb'], #, 'ucb_sample'],  #, 'uniform'}, # UCB SAMPLE IS USELESS
         reset_mode=['exploited', 'explored_or_exploited', 'explored'],
-        incr_mode=['stepped', 'exploited'],
         subset_mode=['all', 'top', 'exclude_bottom'],
         normalise_mode=['population', 'subset'],
-        c=[0.05, 0.1, 0.2, 0.5, 1.0],
+        incr_mode=['exploited', 'stepped'],
         # test options
         steps=20,
         n=20,
-        repeats=3000,
+        repeats=5000,
         steps_till_ready=2,
     )
 
@@ -353,10 +351,10 @@ def run_tests():
     append_results(0, grid_search_options, results)
 
     # RUN EXPERIMENTS
-    for i, options in tqdm(search_options):
+    for i, options in search_options:
         def make_exploiter():
             return ExploitUcb(**{k: options[k] for k in ['subset_mode', 'incr_mode', 'reset_mode', 'select_mode', 'normalise_mode', 'c']})
-        r = run_experiment(make_exploiter, options, show=True, test_scores=results[0], test_converges=results[1])
+        r = run_experiment(make_exploiter, options, show=True) #, test_scores=results[0], test_converges=results[1])
         append_results(0, options, r)
 
     print('\nDONE!\n')
@@ -367,8 +365,7 @@ def run_tests():
 
 
 if __name__ == '__main__':
-    os.environ['COMET_PROJECT_NAME'] = 'improving-pbt-toy-examples-fixes'
-    # os.environ['COMET_DISABLED'] = '1'
+    os.environ['COMET_PROJECT_NAME'] = 'improving-pbt-toy-examples-fixes-2'
     run_tests()
 
 
