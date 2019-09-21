@@ -172,7 +172,7 @@ def run_tests():
     grid_search_options = dict(
         c=[0.1, 0.05, 0.2],
         select_mode=['ucb'], #, 'ucb_sample'],  #, 'uniform'}, # UCB SAMPLE IS USELESS
-        reset_mode=['exploited', 'explored_or_exploited', 'explored'],
+        reset_mode=['exploited'], #, 'explored_or_exploited', 'explored'], # ALL OF THESE ARE THE SAME
         subset_mode=['all', 'top', 'exclude_bottom'],
         normalise_mode=['population', 'subset'],
         incr_mode=['exploited', 'stepped'],
