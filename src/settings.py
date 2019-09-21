@@ -88,7 +88,7 @@ if not ENABLE_COMET_ML:
 # ========================================================================= #
 
 
-RAY_ADDRESS = os.getenv('RAY_ADDRESS')
+RAY_ADDRESS = os.getenv('RAY_ADDRESS', None)
 
 
 # ========================================================================= #
@@ -97,7 +97,7 @@ RAY_ADDRESS = os.getenv('RAY_ADDRESS')
 
 
 USE_GPU = bool(os.getenv('USE_GPU', torch.cuda.is_available())) and torch.cuda.is_available()
-CPUS_PER_NODE = int(os.getenv('USE_GPU', multiprocessing.cpu_count()))
+CPUS_PER_NODE = int(os.getenv('CPUS_PER_NODE', multiprocessing.cpu_count()))
 
 
 # ========================================================================= #
