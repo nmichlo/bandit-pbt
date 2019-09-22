@@ -14,7 +14,7 @@ rm -r "$FILE" || true
 # ============================================================= #
 
 # SLURM
-RUN_SCRIPT="sbatch -n1 -p batch -J ucb-pbt -o logs/{pbt-exploiter}-{i}-%j.log --wrap"
+RUN_SCRIPT="sbatch -n1 -p ha -J {pbt-exploiter}-{i} -o logs/{pbt-exploiter}-{i}-%j.log --wrap"
 
 
 # ============================================================= #
