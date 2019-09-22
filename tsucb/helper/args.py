@@ -142,7 +142,7 @@ class UcbExperimentArgs(NamedTuple):
         return UcbExperimentArgs(*[args[field] for field in UcbExperimentArgs._fields])
 
     @staticmethod
-    def from_parsed_args(defaults=None) -> 'UcbExperimentArgs':
+    def from_system(defaults=None) -> 'UcbExperimentArgs':
         parser = UcbExperimentArgs._create_parser(defaults=defaults)
         return UcbExperimentArgs._from_args(parser.parse_args())
 

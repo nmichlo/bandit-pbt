@@ -18,11 +18,9 @@
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
 
-
-import dotenv
-
-# LOAD ENV
-dotenv.load_dotenv(dotenv.find_dotenv(), verbose=True)
+if __name__ == '__main__':
+    from tsucb.helper.util import load_dotenv
+    load_dotenv()
 
 import comet_ml
 import numpy as np
@@ -34,6 +32,7 @@ from tqdm import tqdm
 from tsucb.helper import util
 from tsucb.pbt.examples.pbt_paper_toy_example import ToyMember, ToyHyperParams
 from tsucb.pbt.pbt import Population
+
 
 # ========================================================================== #
 # RUN EXPERIMENT                                                             #
@@ -105,7 +104,7 @@ def run_experiment(args: UcbExperimentArgs):
         'ave_converge_time': ave_conv_t, 'ave_converge_time_confidence_95': ave_conv_t_conf,
     })
     tqdm.write(f'[RESULT] ave_max_score:     {ave_score:8f} (±{ave_scores_conf:8f})')
-    tqdm.write(f'[RESULT] ave_converge_time: {ave_score:8f} (±{ave_scores_conf:8f})')
+    tqdm.write(f'[RESULT] ave_converge_time: {ave_score:8f} (±{ave_scores_conf:8f})\n')
 
     # LOG - PLOT
     fig, ax = plt.subplots(1, 1)
@@ -117,6 +116,6 @@ def run_experiment(args: UcbExperimentArgs):
 
 
 if __name__ == '__main__':
-    args = UcbExperimentArgs.from_parsed_args()
+    args = UcbExperimentArgs.from_system()
     run_experiment(args)
 

@@ -108,21 +108,25 @@ def print_module_class_heirarchy(module, root_cls_name):
 # ========================================================================= #
 
 
-def print_separator(text, width=100):
+def print_separator(text, width=100, char_v='#', char_h='=', char_corners=None):
     """
     function wraps text in a ascii box.
     """
+    if char_corners is None:
+        char_corners = char_v
+    assert len(char_v) == len(char_corners)
+    assert len(char_h) == 1
     import textwrap
     import pprint
     w = width-4
     lines = []
-    lines.append(f'\n# {"="*w} #')
+    lines.append(f'\n{char_corners} {char_h*w} {char_corners}')
     if type(text) != str:
         text = pprint.pformat(text, width=w)
     for line in text.splitlines():
-        for wrapped in textwrap.wrap(line, w, tabsize=4):
-            lines.append(f'# {wrapped:{w}s} #')
-    lines.append(f'# {"="*w} #\n')
+        for wrapped in (textwrap.wrap(line, w, tabsize=4) if line.strip() else ['']):
+            lines.append(f'{char_v} {wrapped:{w}s} {char_v}')
+    lines.append(f'{char_corners} {char_h*w} {char_corners}\n')
     print('\n'.join(lines))
 
 
@@ -153,6 +157,24 @@ def min_time_elapsed(func_or_seconds, seconds=None):
         assert isinstance(func_or_seconds, (int, float))
         seconds = func_or_seconds
         return decorator
+
+
+# ========================================================================= #
+# DOTENV                                                                    #
+# ========================================================================= #
+
+
+def load_dotenv():
+    import dotenv
+    env_path = dotenv.find_dotenv(raise_error_if_not_found=True)
+    dotenv.load_dotenv(env_path, verbose=True)
+    # LOAD ENVIRONMENT VALUES
+    values_all = dotenv.dotenv_values(env_path, verbose=True)
+    values = {k: v for k, v in values_all.items() if not (k.lower().startswith('http') or 'key' in k.lower())}
+    # PRINT
+    string = '\n'.join(f'{k}: {v}' for k, v in values.items())
+    print_separator(f'[LOADED ENVIRONMENT]: {env_path}\n[HIDDEN KEYS]: {", ".join(set(values_all)-set(values))}\n\n{string}')
+    return values
 
 
 # ========================================================================= #
