@@ -43,6 +43,7 @@ def run_experiment(args: UcbExperimentArgs):
     EXP = comet_ml.Experiment(
         disabled=args.disable_comet,
         display_summary=True,
+        parse_args=False,
     )
 
     EXP.add_tags([
