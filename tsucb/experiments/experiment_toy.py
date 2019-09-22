@@ -105,7 +105,7 @@ def run_experiment(args: UcbExperimentArgs):
         'ave_converge_time': ave_conv_t, 'ave_converge_time_confidence_95': ave_conv_t_conf,
     })
     tqdm.write(f'[RESULT] ave_max_score:     {ave_score:8f} (±{ave_scores_conf:8f})')
-    tqdm.write(f'[RESULT] ave_converge_time: {ave_score:8f} (±{ave_scores_conf:8f})\n')
+    tqdm.write(f'[RESULT] ave_converge_time: {ave_conv_t:8f} (±{ave_conv_t_conf:8f})\n')
 
     # LOG - PLOT
     fig, ax = plt.subplots(1, 1)
