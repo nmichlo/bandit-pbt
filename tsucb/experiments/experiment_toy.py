@@ -86,7 +86,7 @@ def run_experiment(args: UcbExperimentArgs):
         # AVERAGE SCORES
         scores.append(score)
         converge_times.append(converge_time)
-        avg_scores_per_step += population.scores_history.max(axis=0) * (1 / args.pbt_steps)
+        avg_scores_per_step += population.scores_history.max(axis=0) * (1 / args.experiment_repeats)
 
         # LOG STEP
         log_step(i, score, converge_time)
