@@ -83,6 +83,7 @@ if __name__ == '__main__':
 
     choices = {c[0][:-1]: c[1:] for c in args.choices}
     assertion(all(not is_int(k) for k in choices.keys()), 'Choice keys cannot be positional (integers)')
+    assertion(not any(k == 'i' for k in choices.keys()), '"i" is a restricted key')
 
     # check fields
     fields = list(field_name.strip() for (_, field_name, _, _) in Formatter().parse(args.template) if field_name is not None)
@@ -90,9 +91,16 @@ if __name__ == '__main__':
     assertion(all(' ' not in field for field in fields), 'Template field names cannot contain spaces')
     assertion(all(not is_int(field) for field in fields), 'Template field names cannot be positional (integers)')
 
+    fields = set(fields)
+    try:
+        fields.remove('i')
+        has_i = True
+    except:
+        has_i = False
+
     # check missing
-    assertion(len(set(choices) - set(fields)) == 0, 'A key from the choices does not belong to the named template fields')
-    assertion(len(set(fields) - set(choices)) == 0, 'A named field from the template does not belong to the choices keys')
+    assertion(len(set(choices) - fields) == 0, 'A key from the choices does not belong to the named template fields')
+    assertion(len(fields - set(choices)) == 0, 'A named field from the template does not belong to the choices keys')
 
     # PRINT
     if args.verbose:
@@ -102,7 +110,13 @@ if __name__ == '__main__':
             print(f'    {k:{max_len}s}: {v}')
 
     # GRID SEARCH
-    results = [args.template.format_map(chosen) for chosen in grid_search(choices)]
+    results, all_options = [], list(grid_search(choices))
+    if has_i:
+        formatting = f'0{max(len(str(len(all_options))), 4)}d'
+    for i, options in enumerate(all_options):
+        if has_i:
+            options.setdefault('i', f'{i:{formatting}}')
+        results.append(args.template.format_map(options))
 
     if args.verbose:
         print(f'[PERMUTATIONS]: {len(results)}')

@@ -22,6 +22,7 @@
 
 import argparse
 from typing import NamedTuple
+from uuid import uuid4
 from tsucb.pbt.pbt import IExploiter
 
 
@@ -48,6 +49,7 @@ def argparse_number_range(a, b, number_type):
 class UcbExperimentArgs(NamedTuple):
     # EXPERIMENT
     experiment_repeats: int
+    experiment_name: str
     # PBT
     pbt_steps: int
     pbt_members: int
@@ -110,6 +112,7 @@ class UcbExperimentArgs(NamedTuple):
         parser = argparse.ArgumentParser()
         # EXPERIMENT
         parser.add_argument('-n', '--experiment-repeats',type=argparse_number_range(1, float('inf'), int),                           default=defaults.get('experiment_repeats', 1))
+        parser.add_argument('--experiment-name',         type=str, default=uuid4())
         # PBT
         parser.add_argument('--pbt-steps',               type=argparse_number_range(1, float('inf'), int),                           default=defaults.get('pbt_steps', 50))
         parser.add_argument('--pbt-members',             type=argparse_number_range(1, float('inf'), int),                           default=defaults.get('pbt_members', 10))

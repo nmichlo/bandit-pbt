@@ -20,6 +20,7 @@ srun -N1 -n1 -p {queue} -l {executable}   # run command   | N: num nodes | p: wh
 
 scancel {jobid{.step}}       # cancel specific job
 scancel --user={username}    # cancel all my jobs
+scancel $(squeue | grep {username} | awk '{print $1;}') # alternative cancel all jobs
 
 sacct                        # view detailed job logs for your account
 sacct -j {jobid}             # view all job steps

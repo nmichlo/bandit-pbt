@@ -14,7 +14,7 @@ rm -r "$FILE" || true
 # ============================================================= #
 
 # SLURM
-RUN_SCRIPT="sbatch -n1 -p batch -J ucb-pbt -o logs/toy-%j.log --wrap"
+RUN_SCRIPT="sbatch -n1 -p batch -J ucb-pbt -o logs/{pbt-exploiter}-{i}-%j.log --wrap"
 
 
 # ============================================================= #
@@ -31,6 +31,7 @@ UCB_C="0.025 0.05 0.1 0.2 0.5 1.0 2.0"
 EXPERIMENT_SCRIPT=\
 "python -m tsucb.experiments.experiment_toy"\
 " --enable-comet"\
+" --experiment-name={pbt-exploiter}_{i}"\
 " --experiment-repeats={experiment-repeats}"\
 " --pbt-steps={pbt-steps}"\
 " --pbt-members={pbt-members}"\
@@ -52,6 +53,7 @@ python "$SCRIPTS_DIR/grid.py" -v -o "$FILE" "$RUN_SCRIPT '$EXPERIMENT_SCRIPT'" \
 EXPERIMENT_SCRIPT=\
 "python -m tsucb.experiments.experiment_toy"\
 " --enable-comet"\
+" --experiment-name={pbt-exploiter}_{i}"\
 " --experiment-repeats={experiment-repeats}"\
 " --pbt-steps={pbt-steps}"\
 " --pbt-members={pbt-members}"\
