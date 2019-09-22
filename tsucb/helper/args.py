@@ -123,7 +123,7 @@ class UcbExperimentArgs(NamedTuple):
         parser.add_argument('--ucb-reset-mode',          type=str.lower, choices=['exploited', 'explored', 'explored_or_exploited'], default=defaults.get('ucb_reset_mode', 'exploited'))
         parser.add_argument('--ucb-subset-mode',         type=str.lower, choices=['all', 'exclude_bottom', 'top'],                   default=defaults.get('ucb_subset_mode', 'all'))
         parser.add_argument('--ucb-normalise-mode',      type=str.lower, choices=['population', 'subset'],                           default=defaults.get('ucb_normalise_mode', 'population'))
-        parser.add_argument('--ucb-c',                   type=argparse_number_range(0, 1, float),                                    default=defaults.get('ucb_c', 0.1))
+        parser.add_argument('--ucb-c',                   type=argparse_number_range(0, 2, float),                                    default=defaults.get('ucb_c', 0.1))
         # EXPLOITER - UCB & TS
         parser.add_argument('--ts-ratio-top',            type=argparse_number_range(1, float('inf'), int),                           default=defaults.get('ts_ratio_top', 0.2))
         parser.add_argument('--ts-ratio-bottom',         type=argparse_number_range(1, float('inf'), int),                           default=defaults.get('ts_ratio_bottom', 0.2))

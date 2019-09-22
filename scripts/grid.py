@@ -21,6 +21,7 @@
 
 
 import argparse
+from pathlib import Path
 from string import Formatter
 import sys
 
@@ -67,8 +68,9 @@ if __name__ == '__main__':
 
     parser.add_argument('template', type=str)
     parser.add_argument('-c', '--choices', action='append', metavar=('key', 'values'), nargs='+', default=[])
-    parser.add_argument('-o', '--out', action='append', metavar=('key', 'values'), nargs='+', default=[])
+    parser.add_argument('-o', '--out', type=Path, default=None)
     parser.add_argument('-v', '--verbose', action='store_true')
+    parser.add_argument('-p', '--print', action='store_true')
 
     args = parser.parse_args()
 
@@ -94,7 +96,7 @@ if __name__ == '__main__':
 
     # PRINT
     if args.verbose:
-        print('[OPTIONS]:')
+        print('\n[OPTIONS]:')
         max_len = max(len(k) for k in choices)
         for k, v in choices.items():
             print(f'    {k:{max_len}s}: {v}')
@@ -102,20 +104,25 @@ if __name__ == '__main__':
     # GRID SEARCH
     results = [args.template.format_map(chosen) for chosen in grid_search(choices)]
 
-    # PRINT
     if args.verbose:
-        print('\n[GRID SEARCH]:')
-    for result in results:
-        print(result)
+        print(f'[PERMUTATIONS]: {len(results)}')
 
     # SAVE
     if args.out:
-        if args.verbose:
-            print()
-        with open(args.out, 'w') as file:
-            file.writelines(results)
+        with open(args.out, 'a') as file:
+            for line in results:
+                file.write(line)
+                file.write('\n')
         if args.verbose:
             print(f'[SAVED]: {args.out}')
+
+
+    # PRINT
+    if not args.out or args.print:
+        if args.verbose:
+            print('\n[GRID SEARCH]:')
+        for result in results:
+            print(result)
 
 
 # ========================================================================= \#
