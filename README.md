@@ -104,6 +104,13 @@ ray.init(address=os.environ["RAY_ADDRESS"])
 
   conda install pytorch torchvision cudatoolkit=10.0 -c pytorch
   ```
+  
+- [Install Tensorflow]
+
+    ```shell script
+      pip install tensorflow-gpu==2.0.0-beta # optional: stop annying ray warnings
+      pip install gast==0.2.2 # downgrade from 3.x.x to fix errors for tensorflow 2.0.0rc
+    ```
 
 - [Install Ray 0.8.0](https://ray.readthedocs.io/en/latest/installation.html#latest-snapshots-nightlies):
 
