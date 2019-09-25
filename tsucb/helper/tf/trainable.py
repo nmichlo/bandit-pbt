@@ -19,7 +19,15 @@
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
 
-
+#
+#  Permission is hereby granted, free of charge, to any person obtaining a copy
+#  of this software and associated documentation files (the "Software"), to deal
+#  in the Software without restriction, including without limitation the rights
+#  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+#  copies of the Software, and to permit persons to whom the Software is
+#  furnished to do so, subject to the following conditions:
+#
+#
 # import ray
 # from ray.experimental.sgd.tf import TFTrainable, TFTrainer
 # import tensorflow_datasets as tfds
@@ -168,7 +176,7 @@ from tensorflow.python.keras.datasets.mnist import load_data
 from tensorflow.python.ops.gen_dataset_ops import BatchDataset
 import tensorflow as tf
 
-from helper import models
+from helper.tf import models
 
 NUM_TRAIN_SAMPLES = 1000
 NUM_TEST_SAMPLES = 400
