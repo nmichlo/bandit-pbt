@@ -19,14 +19,20 @@
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
 
-from typing import NamedTuple
+
+from copy import deepcopy
+from typing import NamedTuple, NoReturn
 import numpy as np
 import matplotlib.pyplot as plt
 import ray
-from ray.tune.examples.mnist_pytorch_trainable import TrainMNIST
+from ray.tune.examples.mnist_pytorch import ConvNet, get_data_loaders, train, test
 from tqdm import tqdm
 from tsucb.pbt.strategies import ExploitUcb, ExploitTruncationSelection
 from tsucb.pbt.pbt import Member, Population
+import os
+import ray.tune as tune
+
+import torch
 
 
 # ========================================================================= #
@@ -36,6 +42,33 @@ from tsucb.pbt.pbt import Member, Population
 
 class ToyHyperParams(NamedTuple):
     learning_rate: float
+
+
+class TrainMNIST(tune.Trainable):
+    def _setup(self, config):
+        use_cuda = config.get("use_gpu") and torch.cuda.is_available()
+        self.device = torch.device("cuda" if use_cuda else "cpu")
+        self.train_loader, self.test_loader = get_data_loaders()
+        self.model = ConvNet().to(self.device)
+        self.optimizer = torch.optim.SGD(
+            self.model.parameters(),
+            lr=config.get("lr", 0.01),
+            momentum=config.get("momentum", 0.9))
+
+    def eval(self):
+        return test(self.model, self.test_loader, self.device)
+
+    def _train(self):
+        train(self.model, self.optimizer, self.train_loader, device=self.device)
+        return {"mean_accuracy": self.eval()}
+
+    def _save(self, checkpoint_dir):
+        checkpoint_path = os.path.join(checkpoint_dir, "model.pth")
+        torch.save(self.model.state_dict(), checkpoint_path)
+        return checkpoint_path
+
+    def _restore(self, checkpoint_path):
+        self.model.load_state_dict(torch.load(checkpoint_path))
 
 
 # ========================================================================= #
@@ -49,42 +82,39 @@ class MemberMnist(Member):
 
     def __init__(self):
         super().__init__()
-        self._trainable = TrainMNIST(config=dict(
+        config = dict(
             lr=np.random.uniform(0.001, 0.1),
             momentum=np.random.uniform(0.1, 0.9),
             use_gpu=True,
-        ))
-        self._last_eval = None
-
-    def copy_h(self) -> dict:
-        return self._trainable.config
+        )
+        self._trainable = TrainMNIST(config=config)
 
     def _save_theta(self, id):
-        CHECKPOINT_MAP[id] = self._trainable.save('./checkpoints')
-
+        CHECKPOINT_MAP[id] = self._trainable.save(f'./checkpoints/{id}')
     def _load_theta(self, id):
         self._trainable.restore(CHECKPOINT_MAP[id])
 
-    def _is_ready(self, population: 'Population') -> bool:
-        return self._t % population.options.get('steps_till_ready', 3) == 0  # and (self != max(population, key=lambda m: m._p))
-
-    def _step(self, options: dict) -> np.ndarray:
-        result = self._trainable._train()
-        self._last_eval = result['mean_accuracy']
-        return result
-
-    def _eval(self, options: dict) -> float:
-        return self._last_eval
-
-    def _explore(self, population: 'Population') -> dict:
+    def copy_h(self) -> dict:
+        return deepcopy(self._trainable.config)
+    def _set_h(self, h) -> NoReturn:
+        self._trainable = TrainMNIST(config=h)
+        # self._trainable.config = h  # I think this is all you need, but am not sure.
+    def _explored_h(self, population: 'Population') -> dict:
         return dict(
            lr=np.random.uniform(0.001, 0.1),
            momentum=np.random.uniform(0.1, 0.9),
         )
 
+    def _step(self, options: dict) -> np.ndarray:
+        result = self._trainable.train()
+        return result
+    def _eval(self, options: dict) -> float:
+        return self._trainable.eval()
+
 # ============================================================================ #
 # PLOTTING                                                                     #
 # ============================================================================ #
+
 
 #
 # def make_subplots(h, w, figsize=None):
@@ -130,20 +160,20 @@ if __name__ == '__main__':
     ray.init()
 
     options = {
-        "steps": 50,
-        "steps_till_ready": 1,
+        "steps": 20,
+        "steps_till_ready": 2,
         "exploration_scale": 0.1,
     }
 
     # REPEAT EXPERIMENT N TIMES
-    n, k, repeats = 10, 2, 100
+    n, k, repeats = 10, 2, 1
     score, scores = np.zeros(k), np.zeros((k, options['steps']))
     # fig, axs = make_subplots(2, len(scores))
 
     with tqdm(range(repeats)) as itr:
         for i in itr:
             score_0, scores_0 = experiment(options, ExploitTruncationSelection(), n=n, steps=options["steps"], exploit=True, explore=True, title='PBT Trunc Sel')
-            score_1, scores_1 = experiment(options, ExploitUcb(),                 n=n, steps=options["steps"], exploit=True, explore=True, title='PBT Ucb Sel')
+            score_1, scores_1 = experiment(options, ExploitUcb(subset_mode='top', incr_mode='exploited', normalise_mode='subset'),  n=n, steps=options["steps"], exploit=True, explore=True, title='PBT Ucb Sel')
 
             score += [score_0, score_1]
             scores += [scores_0, scores_1]
@@ -157,9 +187,8 @@ if __name__ == '__main__':
     scores /= repeats
     score /= repeats
 
-    print(f'T: {score[0]} | {scores[0]}')
-    print(f'U: {score[1]} |  {scores[1]}')
-
+    print(f'T: {score[0]} | {list(scores[0])}')
+    print(f'U: {score[1]} | {list(scores[1])}')
 
     fig, ax = plt.subplots(1, 1)
 

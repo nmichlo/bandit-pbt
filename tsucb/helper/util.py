@@ -66,6 +66,13 @@ def confidence_interval(data, confidence=0.95):
     return h  # - np.array([-h, +h]) # + mean(data)
 
 
+def shuffled(x, enabled=True):
+    items = list(x)
+    if enabled:
+        import random
+        random.shuffle(items)
+    return items
+
 # ========================================================================= #
 # MODULES                                                                   #
 # ========================================================================= #

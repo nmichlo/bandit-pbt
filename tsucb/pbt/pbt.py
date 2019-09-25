@@ -19,10 +19,12 @@
 #  SOFTWARE.
 
 
+import random
 from typing import List, Iterator, NamedTuple, NoReturn, Optional
 import abc
 import numpy as np
 from tqdm import tqdm
+from helper.util import shuffled
 
 
 # ========================================================================= #
@@ -143,7 +145,7 @@ class Population(IPopulation):
     def exploiter(self) -> 'IExploiter':
         return self._exploiter
 
-    def train(self, n=None, exploit=True, explore=True, show_progress=True) -> 'IPopulation':
+    def train(self, n=None, exploit=True, explore=True, show_progress=True, randomize_order=True) -> 'IPopulation':
         """
         Based on:
         + The original paper
@@ -161,8 +163,12 @@ class Population(IPopulation):
         itr = tqdm(range(n)) if show_progress else range(n)
 
         # TODO: loops should be swapped for async operations
+        #       - original paper describes unsyncronised operations, so members can
+        #         exploit explore at any time if the conditions are met.
         for i in itr:
-            for idx, member in enumerate(self.members):  # should be async
+            # partial async simulation with members not finishing in the same order.
+            ids_members = shuffled(enumerate(self.members), enabled=randomize_order)
+            for idx, member in ids_members:  # should be async
 
                 # one step of optimisation using hyper-parameters h
                 self._step(member)
@@ -288,6 +294,10 @@ class IMember(abc.ABC):
         pass
 
     @abc.abstractmethod
+    def _set_h(self, h) -> NoReturn:
+        pass
+
+    @abc.abstractmethod
     def _save_theta(self, id):
         pass
 
@@ -391,6 +401,7 @@ class Member(IMember):
         self._p = float('-inf')
         # current step
         self._t = 0
+        self._t_last_explore = 0
         # should the score value be recalculated
         self._recal = False
         self._exploited = None
@@ -434,7 +445,7 @@ class Member(IMember):
         return self._p
 
     def is_ready(self, population: 'IPopulation') -> bool:
-        return self._is_ready(population)
+        return self._is_ready(population, self._t, self._t - self._t_last_explore)
 
     def exploit(self, population: 'IPopulation') -> Optional['IMember']:
         member = population.exploiter.exploit(population, self)
@@ -447,27 +458,31 @@ class Member(IMember):
             return None
         # Copy parameters & hyperparameters
         self._load_theta(member.id)
-        self._h = member.copy_h()
+        self._set_h(member.copy_h())
+        self._recal = True
         # Append to history on next step
         self._exploited = population.members.index(member)
         # Success
         return member
 
     def explore(self, population: 'IPopulation') -> bool:
-        exploring_h = self._explore(population)
+        exploring_h = self._explored_h(population)
         assert exploring_h is not None, "Explore values are None, problem with explorer?"
         # Set hyperparameters
-        self._h = exploring_h
+        self._set_h(exploring_h)
+        self._recal = True
+        self._t_last_explore = self._t
         # Success
         return True
 
-    @abc.abstractmethod
-    def _is_ready(self, population: 'IPopulation') -> bool:
+    def _is_ready(self, population: 'IPopulation', steps: int, steps_since_explore: int) -> bool:
         """
         :param population: The population that this member belongs to.
+        :param steps: The number of steps performed.
+        :param steps_since_explore: The number of steps since the last hyper-parameter change.
         :return: True if this member is ready for the exploit/explore stage.
         """
-        pass
+        return steps_since_explore >= population.options['steps_till_ready']
 
     @abc.abstractmethod
     def _step(self, options: dict) -> object:
@@ -486,10 +501,11 @@ class Member(IMember):
         pass
 
     @abc.abstractmethod
-    def _explore(self, population: 'IPopulation') -> bool:
+    def _explored_h(self, population: 'IPopulation') -> object:
         """
         :param population: The population that this member belongs to.
         :return: Updated hyper-parameters, used by self.explore().
+                 *NB* this should be a new instance.
         """
         pass
 

@@ -40,31 +40,27 @@ class ToyMember(Member):
 
     def _save_theta(self, id):
         _THETA_STORE[id] = np.copy(self._theta)
-
     def _load_theta(self, id):
         self._theta = np.copy(_THETA_STORE[id])
 
     def copy_h(self) -> ToyHyperParams:
         return ToyHyperParams(np.copy(self._h.coef), self._h.alpha)
-
-    def _is_ready(self, population: 'Population') -> bool:
-        return self._t % population.options.get('steps_till_ready', 4) == 0  # and (self != max(population, key=lambda m: m._p))
-
-    def _step(self, options: dict) -> dict:
-        dtheta = -2 * self._h.coef * self._theta
-        self._theta += self._h.alpha * dtheta
-        return { 'theta': np.copy(self._theta) }
-
-    def _eval(self, options: dict) -> float:
-        return 1.2 - np.dot(self._theta, self._theta)
-
-    def _explore(self, population: 'Population') -> ToyHyperParams:
+    def _set_h(self, h):
+        self._h = h
+    def _explored_h(self, population: 'Population') -> ToyHyperParams:
         """perturb hyper-parameters with noise from a normal distribution"""
         s = population.options.get('exploration_scale', 0.1)
         return ToyHyperParams(
             np.clip(np.random.normal(self._h.coef, s), 0, 1),
             np.clip(np.random.normal(self._h.alpha, s), 0, 1),
         )
+
+    def _step(self, options: dict) -> dict:
+        dtheta = -2 * self._h.coef * self._theta
+        self._theta += self._h.alpha * dtheta
+        return {'theta': np.copy(self._theta)}
+    def _eval(self, options: dict) -> float:
+        return 1.2 - np.dot(self._theta, self._theta)
 
 # ============================================================================ #
 # PLOTTING                                                                     #
@@ -124,7 +120,7 @@ def make_plot(ax_col, options, exploiter, steps=200, exploit=True, explore=True,
 def run_dual_test():
 
     # REPEAT EXPERIMENT N TIMES
-    n = 10
+    n = 100
 
     options = {
         "steps": 30,
@@ -141,7 +137,7 @@ def run_dual_test():
     with tqdm(range(n)) as itr:
         for i in itr:
             score_0, converge_time_0, score_seq_0, pop_len0 = make_plot(axs[:, 0], options, ExploitTruncationSelection(), steps=options["steps"], exploit=True, explore=True, title='PBT Trunc Sel')
-            score_1, converge_time_1, score_seq_1, pop_len1 = make_plot(axs[:, 1], options, ExploitUcb(),                 steps=options["steps"], exploit=True, explore=True, title='PBT Ucb Sel')
+            score_1, converge_time_1, score_seq_1, pop_len1 = make_plot(axs[:, 1], options, ExploitUcb(subset_mode='top', normalise_mode='subset', incr_mode='exploited'),                 steps=options["steps"], exploit=True, explore=True, title='PBT Ucb Sel')
 
             scores.append([score_0, score_1])
             converges.append([converge_time_0, converge_time_1])
