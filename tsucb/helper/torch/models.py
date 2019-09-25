@@ -40,6 +40,7 @@
 import torchvision
 import torch.nn as nn
 import torch.nn.modules
+import torch.nn.functional as F
 
 from helper import util
 
@@ -49,25 +50,51 @@ from helper import util
 # ========================================================================= #
 
 
+class MnistModel(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+        # torch.nn.Sequential(
+        #         nn.Conv2d(1, 32, kernel_size=5),
+        #             nn.ReLU(),
+        #             nn.MaxPool2d(kernel_size=2),
+        #         nn.Conv2d(32, 64, kernel_size=5),
+        #             nn.ReLU(),
+        #             nn.MaxPool2d(kernel_size=2),
+        #         nn.Linear(7*7*64, 1024),
+        #             nn.ReLU(),
+        #             nn.Dropout(p=0.4),
+        #         nn.Linear(1024, 10),
+        #             nn.LogSoftmax(dim=1),
+        #     )
+
+        self.conv1 = nn.Conv2d( 1, 32, 5, 1, padding=2)
+        self.conv2 = nn.Conv2d(self.conv1.out_channels, 64, 5, 1, padding=2)
+        self.fc1 = nn.Linear(self.conv2.out_channels * 7 * 7, 1024)
+        self.fc2 = nn.Linear(self.fc1.out_features, 10)
+
+    def forward(self, x):
+        x = F.relu(self.conv1(x))
+        x = F.max_pool2d(x, 2, 2)
+        x = F.relu(self.conv2(x))
+        x = F.max_pool2d(x, 2, 2)
+        print(x.shape)
+        x = x.view(-1, 7 * 7 * self.conv2.out_channels)
+        x = F.relu(self.fc1(x))
+        x = self.fc2(x)
+        return F.log_softmax(x, dim=1)
+
+
+
+
 def create_mnist_model():
     """
     From https://github.com/tensorflow/models/blob/master/official/mnist/mnist.py
     :param data_format: 'channels_first' is typically faster on GPUs while 'channels_last' is typically faster on CPUs.
     :return: A torch.nn.Sequential model
     """
-    return torch.nn.Sequential(
-        nn.Conv2d(28*28*1, 32, kernel_size=5),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2),
-        nn.Conv2d(32, 64, kernel_size=5),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2),
-        nn.Linear(7*7*64, 1024),
-            nn.ReLU(),
-            nn.Dropout(p=0.4),
-        nn.Linear(1024, 10),
-            nn.LogSoftmax(dim=1),
-    )
+
+    return MnistModel()
 
 
 # ========================================================================= #

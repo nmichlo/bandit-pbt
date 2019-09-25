@@ -127,7 +127,7 @@ class GeneralTrainable(PyTorchTrainable):
             config=config,
             num_replicas=config.get('num_replicas', 1),
             use_gpu=config.get('use_gpu', True),
-            batch_size=config.get('batch_size', 16),
+            batch_size=config.get('batch_size', 1),
             backend=config.get('backend', 'auto')
         )
 

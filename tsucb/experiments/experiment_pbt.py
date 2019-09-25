@@ -18,13 +18,6 @@
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
 
-#
-#  Permission is hereby granted, free of charge, to any person obtaining a copy
-#  of this software and associated documentation files (the "Software"), to deal
-#  in the Software without restriction, including without limitation the rights
-#  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-#  copies of the Software, and to permit persons to whom the Software is
-#  furnished to do so, subject to the following conditions:
 
 
 import atexit
@@ -35,23 +28,26 @@ from pprint import pprint
 import numpy as np
 import torch
 import copy
+import ray.tune
+from pbt.pbt import Member
+from ray.tune.examples.mnist_pytorch_trainable import TrainMNIST
 
 
 # ========================================================================= #
 # COMET ML                                                                  #
 # ========================================================================= #
 
-# Settings are automatically read from environment variables.
-# https://www.comet.ml/docs/python-sdk/advanced/#comet-configuration-variables
-from tsucb.pbt.pbt import Member
-from tsucb.pbt.strategies import ExploitUcb, ExploitTruncationSelection
-
-EXP = comet_ml.Experiment(
-    disabled=(not settings.ENABLE_COMET_ML),
-)
-
-if EXP.alive is False:
-    raise Exception("Comet.ml isn't alive!")
+# # Settings are automatically read from environment variables.
+# # https://www.comet.ml/docs/python-sdk/advanced/#comet-configuration-variables
+# from tsucb.pbt.pbt import Member
+# from tsucb.pbt.strategies import ExploitUcb, ExploitTruncationSelection
+#
+# EXP = comet_ml.Experiment(
+#     disabled=(not settings.ENABLE_COMET_ML),
+# )
+#
+# if EXP.alive is False:
+#     raise Exception("Comet.ml isn't alive!")
 
 
 # ========================================================================= #
@@ -59,12 +55,12 @@ if EXP.alive is False:
 # ========================================================================= #
 
 
-if settings.EXP_EXPLOITER == 'ts-ucb':
-    exploiter = ExploitUcb
-elif settings.EXP_EXPLOITER == 'ts':
-    exploiter = ExploitTruncationSelection
-else:
-    raise KeyError(f'Invalid scheduler specified: {settings.EXP_SCHEDULER}')
+# if settings.EXP_EXPLOITER == 'ts-ucb':
+#     exploiter = ExploitUcb
+# elif settings.EXP_EXPLOITER == 'ts':
+#     exploiter = ExploitTruncationSelection
+# else:
+#     raise KeyError(f'Invalid scheduler specified: {settings.EXP_SCHEDULER}')
 
 
 # ========================================================================= #
@@ -108,7 +104,7 @@ class ModelTrainer(Member):
         return result
 
     def _eval(self, options: dict) -> float:
-        model.eval()
+        self._model.eval()
 
         test_loss = 0
         correct = 0
@@ -128,7 +124,7 @@ class ModelTrainer(Member):
 
         return self._last_eval
 
-    def _explore(self, population: 'Population') -> dict:
+    def _explored_h(self, population: 'Population') -> dict:
         return dict(
            lr=np.random.uniform(0.001, 0.1),
            momentum=np.random.uniform(0.1, 0.9),
@@ -139,30 +135,32 @@ class ModelTrainer(Member):
 
 
 
-analysis = tune.run(
-    TrainMNIST,
-    scheduler=scheduler,
-    resources_per_trial=dict(
-        cpu=settings.CPUS_PER_NODE,
-        gpu=settings.USE_GPU
-    ),
-    num_samples=settings.EXP_POPULATION_SIZE,
-    # compares to values returned from train()
-    stop=dict(
-        mean_accuracy=0.99,
-        training_iteration=20,
-    ),
-    # sampling functions
-    config=dict(
-        lr=tune.uniform(0.001, 0.1),
-        momentum=tune.uniform(0.1, 0.9),
-    ),
-)
 
 
-print(f'Best config is: {analysis.get_best_config(metric="mean_accuracy")}')
-print(f'All the configs are:')
-pprint(analysis.get_all_configs())
+# analysis = tune.run(
+#     TrainMNIST,
+#     scheduler=scheduler,
+#     resources_per_trial=dict(
+#         cpu=settings.CPUS_PER_NODE,
+#         gpu=settings.USE_GPU
+#     ),
+#     num_samples=settings.EXP_POPULATION_SIZE,
+#     # compares to values returned from train()
+#     stop=dict(
+#         mean_accuracy=0.99,
+#         training_iteration=20,
+#     ),
+#     # sampling functions
+#     config=dict(
+#         lr=tune.uniform(0.001, 0.1),
+#         momentum=tune.uniform(0.1, 0.9),
+#     ),
+# )
+
+
+# print(f'Best config is: {analysis.get_best_config(metric="mean_accuracy")}')
+# print(f'All the configs are:')
+# pprint(analysis.get_all_configs())
 
 
 # ========================================================================= #
