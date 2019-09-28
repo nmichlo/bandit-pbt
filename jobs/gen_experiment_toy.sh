@@ -73,9 +73,9 @@ python "$SCRIPTS_DIR/grid.py" -v -o "$FILE" "$RUN_SCRIPT '$EXPERIMENT_SCRIPT'" \
       -c pbt-exploiter:           'ucb'        \
       -c ucb-c:                   $UCB_C       \
       -c ucb-incr-mode:           'exploited'  'stepped'                                   \
-      -c ucb-reset-mode:          'exploited'  'explored'       'explored_or_exploited'    \
+      -c ucb-reset-mode:          'exploited'                                              \
       -c ucb-subset-mode:         'all'        'exclude_bottom' 'top'                      \
-      -c ucb-normalise-mode:      'population' 'subset'                                    \
+      -c ucb-normalise-mode:      'subset'                                                 \
 
 # ============================================================= #
 
