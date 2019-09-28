@@ -75,8 +75,14 @@ class UcbExperimentArgs(NamedTuple):
     def is_ucb(self):
         return self.pbt_exploiter == 'ucb'
 
-    def to_dict(self):
-        return {k: getattr(self, k) for k in self._fields}
+    def to_dict(self, useful_only=False):
+        opts = {k: getattr(self, k) for k in self._fields}
+        if useful_only:
+            if self.pbt_exploiter == 'ucb':
+                pass
+            elif self.pbt_exploiter == 'ts':
+                opts = {k: v for k, v in opts.items() if not k.starts_with('ucb_')}
+        return opts
 
     def make_exploiter(self) -> 'IExploiter':
         if self.pbt_exploiter == 'ucb':

@@ -53,8 +53,8 @@ def run_experiment(args: UcbExperimentArgs):
     ])
 
     # OPTIONS
-    print_separator(args.to_dict())
-    EXP.log_parameters(args.to_dict())
+    print_separator(args.to_dict(useful_only=True))
+    EXP.log_parameters(args.to_dict(useful_only=True))
 
     @util.min_time_elapsed(1.0)
     def log_step(i, score, converge_time):
