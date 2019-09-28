@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
-from tsucb.pbt.strategies import ExploitUcb, ExploitTruncationSelection
+from tsucb.pbt.strategies import ExploitUcb, ExploitTruncationSelection, ExploitEGreedy
 from tsucb.pbt.pbt import Member, Population
 import scipy.stats
 
@@ -93,7 +93,7 @@ def make_plot(ax_col, options, exploiter, steps=200, exploit=True, explore=True,
     population = Population([
         # ToyMember(ToyHyperParams(np.array([1., .0]), 0.01), np.array([.9, .9])),
         # ToyMember(ToyHyperParams(np.array([.0, 1.]), 0.01), np.array([.9, .9])),
-        *[ToyMember(h=ToyHyperParams(np.random.rand(2) * 0.5, 0.01), theta=np.array([.9, .9])) for i in range(10)],
+        *[ToyMember(h=ToyHyperParams(np.random.rand(2) * 0.5, 0.01), theta=np.array([.9, .9])) for i in range(20)],
         # *[ToyMember(ToyHyperParams(np.array([np.random.rand()*0.5, 1.]), 0.01), np.array([.9, .9])) for i in range(3)],
     ], exploiter=exploiter, options=options)
 
@@ -120,11 +120,11 @@ def make_plot(ax_col, options, exploiter, steps=200, exploit=True, explore=True,
 def run_dual_test():
 
     # REPEAT EXPERIMENT N TIMES
-    n = 100
+    n = 1000
 
     options = {
-        "steps": 30,
-        "steps_till_ready": 2,
+        "steps": 15,
+        "steps_till_ready": 3,
         "exploration_scale": 0.1,
     }
 
@@ -136,8 +136,9 @@ def run_dual_test():
 
     with tqdm(range(n)) as itr:
         for i in itr:
-            score_0, converge_time_0, score_seq_0, pop_len0 = make_plot(axs[:, 0], options, ExploitTruncationSelection(), steps=options["steps"], exploit=True, explore=True, title='PBT Trunc Sel')
-            score_1, converge_time_1, score_seq_1, pop_len1 = make_plot(axs[:, 1], options, ExploitUcb(subset_mode='top', normalise_mode='subset', incr_mode='exploited'),                 steps=options["steps"], exploit=True, explore=True, title='PBT Ucb Sel')
+            score_0, converge_time_0, score_seq_0, pop_len0 = make_plot(axs[:, 0], options, ExploitTruncationSelection(),                                                  steps=options["steps"], exploit=True, explore=True, title='PBT Trunc Sel')
+            score_1, converge_time_1, score_seq_1, pop_len1 = make_plot(axs[:, 1], options, ExploitEGreedy(epsilon=0.5, subset_mode='top'), steps=options["steps"], exploit=True, explore=True, title='PBT Alt. Sel')
+            # score_1, converge_time_1, score_seq_1, pop_len1 = make_plot(axs[:, 1], options, ExploitUcb(subset_mode='top', normalise_mode='subset', incr_mode='exploited'), steps=options["steps"], exploit=True, explore=True, title='PBT Ucb Sel')
 
             scores.append([score_0, score_1])
             converges.append([converge_time_0, converge_time_1])
@@ -161,7 +162,7 @@ def run_dual_test():
 
     fig, ((ax,),) = make_subplots(1, 1)
     ax.plot(score_seq[0], label='PBT Trunc Sel')
-    ax.plot(score_seq[1], label='PBT Ucb Sel')
+    ax.plot(score_seq[1], label='PBT Alt. Sel')
     ax.legend()
     # ax.set(title=f'Trunc vs Ucb: {dict(n=pop_size, r=options["steps_till_ready"])}', xlabel='Steps', ylabel='Ave Max Score')
 

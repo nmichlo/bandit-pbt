@@ -108,6 +108,32 @@ class ExploitBinaryTournament(Exploiter):
 # CUSTOM STRATEGIES                                                         #
 # ========================================================================= #
 
+class ExploitEGreedy(ExploitTruncationSelection):
+
+    def __init__(self, epsilon=0.5, bottom_ratio=0.2, top_ratio=0.2, subset_mode='top'):
+        super().__init__(bottom_ratio=bottom_ratio, top_ratio=top_ratio)
+        # MODES
+        assert subset_mode in {'top', 'exclude_bottom', 'all'}
+        self._subset_mode = subset_mode
+        self._epsilon = epsilon
+
+    def _choose_replacement(self, mbrs_low: List['IMember'], mbrs_mid: List['IMember'], mbrs_top: List['IMember'], mbrs: List['IMember'], population: 'IPopulation', member: 'IMember') -> 'IMember':
+        if self._subset_mode == 'top':
+            members = mbrs_top
+        elif self._subset_mode == 'exclude_bottom':
+            members = mbrs_mid + mbrs_top
+        elif self._subset_mode == 'all':
+            members = mbrs[:]
+            members.remove(member)
+        else:
+            raise KeyError('Invalid subset_mode')
+
+        if np.random.random() < self._epsilon:
+            # with e probability take a random sample (explore) otherwise greedy
+            return random.choice(members)
+        else:
+            return members[np.argmax([m.score for m in members])]
+
 class ExploitUcb(ExploitTruncationSelection):
     def __init__(self, bottom_ratio=0.2, top_ratio=0.2, c=0.1, subset_mode='all', incr_mode='exploited', reset_mode='explored_or_exploited', select_mode='ucb', normalise_mode='population', debug=False):
         # >>> high c is BAD
