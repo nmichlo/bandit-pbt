@@ -545,6 +545,15 @@ class IExploiter(abc.ABC):
     def _member_on_used_for_exploit(self, member) -> NoReturn:
         pass
 
+    @property
+    def name(self):
+        n = self.__class__.__name__
+        if len(n) > 10 and n.lower().startswith('exploiter'):
+            n = n[9:]
+        elif len(n) > 8 and n.lower().startswith('exploit'):
+            n = n[7:]
+        return n
+
 
 class Exploiter(IExploiter):
     pass

@@ -135,7 +135,7 @@ class ExploitEGreedy(ExploitTruncationSelection):
             return members[np.argmax([m.score for m in members])]
 
 class ExploitUcb(ExploitTruncationSelection):
-    def __init__(self, bottom_ratio=0.2, top_ratio=0.2, c=0.1, subset_mode='all', incr_mode='exploited', reset_mode='explored_or_exploited', select_mode='ucb', normalise_mode='population', debug=False):
+    def __init__(self, bottom_ratio=0.2, top_ratio=0.2, c=0.1, subset_mode='top', incr_mode='exploited', reset_mode='exploited', select_mode='ucb', normalise_mode='subset', debug=False):
         # >>> high c is BAD
         # >>> low c is BAD
         super().__init__(bottom_ratio=bottom_ratio, top_ratio=top_ratio)
@@ -226,14 +226,19 @@ class ExploitUcb(ExploitTruncationSelection):
             raise KeyError('Invalid normalise_mode')
 
         scores = (scores - s_min) / (s_max - s_min + np.finfo(float).eps)
-        # normalise steps
-        steps = np.array([self._visits_get(m) for m in members])
+
+        # step counts
+        # HAS ALWAYS TAKEN AT LEAST ONE STEP - EACH MEMBER IS ALREADY VALIDATED
+        steps = np.array([self._visits_get(m) for m in members]) + 1
         total_steps = np.sum(steps)
+
         # ucb scores
-        ucb_scores = ExploitUcb.ucb1(scores, steps + 1, total_steps + 1, C=self._c)
+        # we increment the step count by one because everything has already been visited by default
+        ucb_scores = ExploitUcb.ucb1(scores, steps, total_steps, C=self._c)
 
         # mode
         if self._select_mode == 'ucb':
+            # TODO SHUFFLE SO THAT TIES ARE BROKEN
             ucb_ordering = np.argsort(ucb_scores)[::-1]
             return members[ucb_ordering[0]]
         elif self._select_mode == 'ucb_sample':
@@ -250,7 +255,21 @@ class ExploitUcb(ExploitTruncationSelection):
 
     @staticmethod
     def ucb1(X_i, n_i, n, C=1.):
+        # ORIG:
+        # return X_i + C * np.sqrt(np.log2(n+1) / (n_i+1))
+
         return X_i + C * np.sqrt(np.log2(n) / n_i)
+
+        # # NEW:
+        # ucbs = np.full_like(X_i, np.inf)
+        # vals = np.sqrt(2 * np.log(n) / n_i)
+        # # vals = np.sqrt(2 * np.log(n + 1) / n_i)
+        # ucbs[n_i > 0] = vals[n_i > 0]
+        # # TODO: ties broken by random selection
+        # # print(ucbs)
+        # # OLD:
+        # # ucbs = np.sqrt(np.log2(n + 1) / (n_i + 1))
+        # return X_i + C * ucbs
 
 
 # ========================================================================= #

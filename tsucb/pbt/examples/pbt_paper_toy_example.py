@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
+from helper import util
 from tsucb.pbt.strategies import ExploitUcb, ExploitTruncationSelection, ExploitEGreedy
 from tsucb.pbt.pbt import Member, Population
 import scipy.stats
@@ -93,7 +94,7 @@ def make_plot(ax_col, options, exploiter, steps=200, exploit=True, explore=True,
     population = Population([
         # ToyMember(ToyHyperParams(np.array([1., .0]), 0.01), np.array([.9, .9])),
         # ToyMember(ToyHyperParams(np.array([.0, 1.]), 0.01), np.array([.9, .9])),
-        *[ToyMember(h=ToyHyperParams(np.random.rand(2) * 0.5, 0.01), theta=np.array([.9, .9])) for i in range(20)],
+        *[ToyMember(h=ToyHyperParams(np.random.rand(2) * 0.5, 0.01), theta=np.array([.9, .9])) for i in range(options['population_size'])],
         # *[ToyMember(ToyHyperParams(np.array([np.random.rand()*0.5, 1.]), 0.01), np.array([.9, .9])) for i in range(3)],
     ], exploiter=exploiter, options=options)
 
@@ -107,8 +108,8 @@ def make_plot(ax_col, options, exploiter, steps=200, exploit=True, explore=True,
 
     score = np.max(population.scores)
 
-    plot_theta(ax_col[0], population, steps=steps, title=title)
-    plot_performance(ax_col[1], population, steps=steps, title=title)
+    # plot_theta(ax_col[0], population, steps=steps, title=title)
+    # plot_performance(ax_col[1], population, steps=steps, title=title)
     return score, time_to_converge, scores.max(axis=0), len(population)
 
 
@@ -119,53 +120,56 @@ def make_plot(ax_col, options, exploiter, steps=200, exploit=True, explore=True,
 
 def run_dual_test():
 
-    # REPEAT EXPERIMENT N TIMES
-    n = 1000
-
     options = {
+        "repeats": 1000,
         "steps": 15,
         "steps_till_ready": 3,
         "exploration_scale": 0.1,
+        "population_size": 25
     }
 
-    k, pop_size = 2, None
-    scores, converges, score_seq = [], [], np.zeros((k, options['steps']))
+    # EXPLOITERS
+    exploiters = [
+        ('ts', lambda: ExploitTruncationSelection()),
+        ('ts-egreedy', lambda: ExploitEGreedy(epsilon=0.5, subset_mode='top')),
+        ('ts-ucb', lambda: ExploitUcb(c=1, subset_mode='top', normalise_mode='subset', incr_mode='exploited')),
+    ]
+    k = len(exploiters)
 
-    # LOGGING
+    # RESULTS
+    scores, converge_times, scores_per_steps = [], [], np.zeros((k, options['steps']))
     fig, axs = make_subplots(2, k)
 
-    with tqdm(range(n)) as itr:
+    @util.min_time_elapsed(0.5)
+    def print_results(i, n):
+        tqdm.write(f"{i:{len(str(n))}d}/{n} {' | '.join(f'{name}: {s:9.7f} {c:9.7f}' for (name, _), s, c in zip(exploiters, np.average(scores, axis=0), np.average(converge_times, axis=0)))}")
+
+    # EXPERIMENTS
+    with tqdm(range(options['repeats'])) as itr:
         for i in itr:
-            score_0, converge_time_0, score_seq_0, pop_len0 = make_plot(axs[:, 0], options, ExploitTruncationSelection(),                                                  steps=options["steps"], exploit=True, explore=True, title='PBT Trunc Sel')
-            score_1, converge_time_1, score_seq_1, pop_len1 = make_plot(axs[:, 1], options, ExploitEGreedy(epsilon=0.5, subset_mode='top'), steps=options["steps"], exploit=True, explore=True, title='PBT Alt. Sel')
-            # score_1, converge_time_1, score_seq_1, pop_len1 = make_plot(axs[:, 1], options, ExploitUcb(subset_mode='top', normalise_mode='subset', incr_mode='exploited'), steps=options["steps"], exploit=True, explore=True, title='PBT Ucb Sel')
+            results = []  # [(score, converge_time, score_seq, pop_len)]
+            for name, make_exploiter in exploiters:
+                exploiter = make_exploiter()
+                result = make_plot(axs[:, 0], options, exploiter=exploiter,  steps=options["steps"], exploit=True, explore=True, title=f'PBT {name}')
+                results.append(result)
+            r_scores, r_conv_time, r_score_seq, r_pop_sizes = zip(*results)
 
-            scores.append([score_0, score_1])
-            converges.append([converge_time_0, converge_time_1])
-            score_seq += [score_seq_0, score_seq_1]
+            scores.append(r_scores)
+            converge_times.append(r_conv_time)
+            scores_per_steps += r_score_seq
+            assert all(a == b for a, b in zip(r_pop_sizes[:-1], r_pop_sizes[1:]))
 
-            assert (pop_size is None or pop_size == pop_len0) and pop_len0 == pop_len1
-            pop_size = pop_len0
+            print_results(i, options['repeats'])
 
-            # The t score is a ratio between the difference between two groups and the difference within the groups.
-            # The larger the t score, the more difference there is between groups
-            # A p-value is the probability that the results from your sample data occurred by chance
-            # p < 0.05 is normally accepted as valid results
-            s, c = np.array(scores), np.array(converges)
-            s_t, s_p = scipy.stats.ttest_ind(*s.T, equal_var=False)
-            c_t, c_p = scipy.stats.ttest_ind(*c.T, equal_var=False)
 
-            itr.set_description(f's={s.mean(axis=0).round(6)} [t,p]={np.around([s_t, s_p], 4)} | c={c.mean(axis=0).round(4)} [t,p]={np.around([c_t, c_p], 4)}')
 
-    scores, converges, score_seq = np.array(scores), np.array(converges), np.array(score_seq)
+    scores, converge_times, scores_per_steps = np.array(scores), np.array(converge_times), np.array(scores_per_steps)
     fig.show()
 
     fig, ((ax,),) = make_subplots(1, 1)
-    ax.plot(score_seq[0], label='PBT Trunc Sel')
-    ax.plot(score_seq[1], label='PBT Alt. Sel')
+    for (name, _), score_per_step in zip(exploiters, scores_per_steps):
+        ax.plot(score_per_step, label=f'{name}')
     ax.legend()
-    # ax.set(title=f'Trunc vs Ucb: {dict(n=pop_size, r=options["steps_till_ready"])}', xlabel='Steps', ylabel='Ave Max Score')
-
     fig.show()
 
 
