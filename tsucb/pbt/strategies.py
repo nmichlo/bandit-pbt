@@ -105,40 +105,80 @@ class ExploitBinaryTournament(Exploiter):
 
 
 # ========================================================================= #
-# CUSTOM STRATEGIES                                                         #
+# CUSTOM STRATEGIES - HELPER                                                #
 # ========================================================================= #
 
-class ExploitEGreedy(ExploitTruncationSelection):
 
-    def __init__(self, epsilon=0.5, bottom_ratio=0.2, top_ratio=0.2, subset_mode='top'):
+class _ExploitTsSubset(ExploitTruncationSelection):
+    def __init__(self, bottom_ratio=0.2, top_ratio=0.2, subset_mode='top'):
         super().__init__(bottom_ratio=bottom_ratio, top_ratio=top_ratio)
-        # MODES
         assert subset_mode in {'top', 'exclude_bottom', 'all'}
         self._subset_mode = subset_mode
-        self._epsilon = epsilon
 
     def _choose_replacement(self, mbrs_low: List['IMember'], mbrs_mid: List['IMember'], mbrs_top: List['IMember'], mbrs: List['IMember'], population: 'IPopulation', member: 'IMember') -> 'IMember':
         if self._subset_mode == 'top':
-            members = mbrs_top
+            subset = mbrs_top
         elif self._subset_mode == 'exclude_bottom':
-            members = mbrs_mid + mbrs_top
+            subset = mbrs_mid + mbrs_top
         elif self._subset_mode == 'all':
-            members = mbrs[:]
-            members.remove(member)
+            subset = mbrs[:]
+            subset.remove(member)
         else:
             raise KeyError('Invalid subset_mode')
+        return self._choose(subset, population, member)
 
+    def _choose(self, subset: List['IMember'], population: 'IPopulation', member: 'IMember'):
+        raise NotImplementedError('Override Me')
+
+# ========================================================================= #
+# CUSTOM STRATEGIES                                                         #
+# ========================================================================= #
+
+class ExploitEGreedy(_ExploitTsSubset):
+    def __init__(self, epsilon=0.5, bottom_ratio=0.2, top_ratio=0.2, subset_mode='top'):
+        super().__init__(bottom_ratio=bottom_ratio, top_ratio=top_ratio, subset_mode=subset_mode)
+        self._epsilon = epsilon
+
+    def _choose(self, subset: List['IMember'], population: 'IPopulation', member: 'IMember') -> 'IMember':
         if np.random.random() < self._epsilon:
             # with e probability take a random sample (explore) otherwise greedy
-            return random.choice(members)
+            return random.choice(subset)
         else:
-            return members[np.argmax([m.score for m in members])]
+            return subset[np.argmax([m.score for m in subset])]
 
-class ExploitUcb(ExploitTruncationSelection):
+class ExploitSoftmax(_ExploitTsSubset):
+    def __init__(self, temperature=1.0, bottom_ratio=0.2, top_ratio=0.2, subset_mode='top'):
+        super().__init__(bottom_ratio=bottom_ratio, top_ratio=top_ratio, subset_mode=subset_mode)
+        self._temperature = temperature
+
+    def _choose(self, subset: List['IMember'], population: 'IPopulation', member: 'IMember') -> 'IMember':
+        scores = np.array([m.score for m in subset])
+        # NORMALISE SCORES BETWEEN 0 AND 1
+        s_min, s_max = np.min(scores), np.max(scores)
+        scores = (scores - s_min) / (s_max - s_min + np.finfo(float).eps)
+        # CALCULATE PROB
+        vals = np.exp(scores * self._temperature)
+        prob = vals / np.sum(vals)
+        # RETURN CATEGORICALLY SAMPLED
+        return np.random.choice(subset, p=prob)
+
+class ExploitESoftmax(ExploitSoftmax):
+    def __init__(self, epsilon=0.5, temperature=1.0, bottom_ratio=0.2, top_ratio=0.2, subset_mode='top'):
+        super().__init__(temperature=temperature, bottom_ratio=bottom_ratio, top_ratio=top_ratio, subset_mode=subset_mode)
+        self._epsilon = epsilon
+
+    def _choose(self, subset: List['IMember'], population: 'IPopulation', member: 'IMember') -> 'IMember':
+        if np.random.random() < self._epsilon:
+            return super()._choose(subset, population, member)
+        else:
+            return subset[np.argmax([m.score for m in subset])]
+
+
+class ExploitUcb(_ExploitTsSubset):
     def __init__(self, bottom_ratio=0.2, top_ratio=0.2, c=0.1, subset_mode='top', incr_mode='exploited', reset_mode='exploited', select_mode='ucb', normalise_mode='subset', debug=False):
         # >>> high c is BAD
         # >>> low c is BAD
-        super().__init__(bottom_ratio=bottom_ratio, top_ratio=top_ratio)
+        super().__init__(bottom_ratio=bottom_ratio, top_ratio=top_ratio, subset_mode=subset_mode)
         # UCB
         self.__step_counts = defaultdict(int)
         self._c = c
@@ -146,12 +186,10 @@ class ExploitUcb(ExploitTruncationSelection):
         assert select_mode in {'ucb', 'ucb_sample', 'uniform'}
         assert incr_mode in {'stepped', 'exploited'}
         assert reset_mode in {'explored_or_exploited', 'explored', 'exploited'}
-        assert subset_mode in {'top', 'exclude_bottom', 'all'}
         assert normalise_mode in {'subset', 'population'}
         self._select_mode = select_mode
         self._incr_mode = incr_mode
         self._reset_mode = reset_mode
-        self._subset_mode = subset_mode
         self._normalise_mode = normalise_mode
         # debug
         self.debug = debug
@@ -195,28 +233,15 @@ class ExploitUcb(ExploitTruncationSelection):
             self._visits_incr(member)
             self._debug_message('EXPLOITED', member)
 
-    def _choose_replacement(self, mbrs_low: List['IMember'], mbrs_mid: List['IMember'], mbrs_top: List['IMember'], mbrs: List['IMember'], population: 'IPopulation', member: 'IMember') -> 'IMember':
-        assert mbrs_low + mbrs_mid + mbrs_top == mbrs
-        # TODO: fix floating point for calculating top and bottom indices
-
+    def _choose(self, subset: List['IMember'], population: 'IPopulation', member: 'IMember') -> 'IMember':
         if self.debug:
             print()
             self._debug_message('REPLACING', member)
             print()
 
-        if self._subset_mode == 'top':
-            members = mbrs_top
-        elif self._subset_mode == 'exclude_bottom':
-            members = mbrs_mid + mbrs_top
-        elif self._subset_mode == 'all':
-            members = mbrs[:]
-            members.remove(member)
-        else:
-            raise KeyError('Invalid subset_mode')
-
         # assert len(_pop) == len(members), 'Not all members were included'
         # normalise scores
-        scores = np.array([m.score for m in members])
+        scores = np.array([m.score for m in subset])
 
         if self._normalise_mode == 'population':
             s_min, s_max = np.min(population.scores), np.max(population.scores)
@@ -229,7 +254,7 @@ class ExploitUcb(ExploitTruncationSelection):
 
         # step counts
         # HAS ALWAYS TAKEN AT LEAST ONE STEP - EACH MEMBER IS ALREADY VALIDATED
-        steps = np.array([self._visits_get(m) for m in members]) + 1
+        steps = np.array([self._visits_get(m) for m in subset]) + 1
         total_steps = np.sum(steps)
 
         # ucb scores
@@ -240,36 +265,17 @@ class ExploitUcb(ExploitTruncationSelection):
         if self._select_mode == 'ucb':
             # TODO SHUFFLE SO THAT TIES ARE BROKEN
             ucb_ordering = np.argsort(ucb_scores)[::-1]
-            return members[ucb_ordering[0]]
+            return subset[ucb_ordering[0]]
         elif self._select_mode == 'ucb_sample':
-            ucb_sum = np.sum(ucb_scores)
-            if ucb_sum == 0:
-                ucb_scores[:] = 1
-            # rather do T test than actual UCB, this is wrong.
-            ucb_prob = ucb_scores / (np.sum(ucb_scores) + np.finfo(float).eps)
-            return members[np.random.choice(np.arange(len(members)), p=ucb_prob)]
+            raise KeyError('ucb_sample is no longer a valid method. TODO: replace with softmax-ucb')
         elif self._select_mode == 'uniform':
-            return random.choice(members)
+            return random.choice(subset)
         else:
             raise KeyError('Invalid select_mode')
 
     @staticmethod
     def ucb1(X_i, n_i, n, C=1.):
-        # ORIG:
-        # return X_i + C * np.sqrt(np.log2(n+1) / (n_i+1))
-
         return X_i + C * np.sqrt(np.log2(n) / n_i)
-
-        # # NEW:
-        # ucbs = np.full_like(X_i, np.inf)
-        # vals = np.sqrt(2 * np.log(n) / n_i)
-        # # vals = np.sqrt(2 * np.log(n + 1) / n_i)
-        # ucbs[n_i > 0] = vals[n_i > 0]
-        # # TODO: ties broken by random selection
-        # # print(ucbs)
-        # # OLD:
-        # # ucbs = np.sqrt(np.log2(n + 1) / (n_i + 1))
-        # return X_i + C * ucbs
 
 
 # ========================================================================= #

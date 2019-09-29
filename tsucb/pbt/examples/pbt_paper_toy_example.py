@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 
 from helper import util
-from tsucb.pbt.strategies import ExploitUcb, ExploitTruncationSelection, ExploitEGreedy
+from tsucb.pbt.strategies import ExploitUcb, ExploitTruncationSelection, ExploitEGreedy, ExploitSoftmax, ExploitESoftmax
 from tsucb.pbt.pbt import Member, Population
 import scipy.stats
 
@@ -101,7 +101,7 @@ def make_plot(ax_col, options, exploiter, steps=200, exploit=True, explore=True,
     population.train(steps, exploit=exploit, explore=explore, show_progress=False)
 
     # Calculates the score as the index of the first occurrence greater than 1.18
-    scores = np.array([[h.p for h in m] for m in population])
+    scores = np.array([[h.p for h in m.history] for m in population])
     firsts = np.argmax(scores > 1.18, axis=1)
     firsts[firsts == 0] = scores.shape[1]
     time_to_converge = np.min(firsts)
@@ -121,18 +121,20 @@ def make_plot(ax_col, options, exploiter, steps=200, exploit=True, explore=True,
 def run_dual_test():
 
     options = {
-        "repeats": 1000,
-        "steps": 15,
-        "steps_till_ready": 3,
+        "repeats": 100,
+        "steps": 16,
+        "steps_till_ready": 2,
         "exploration_scale": 0.1,
-        "population_size": 25
+        "population_size": 50
     }
 
     # EXPLOITERS
     exploiters = [
         ('ts', lambda: ExploitTruncationSelection()),
-        ('ts-egreedy', lambda: ExploitEGreedy(epsilon=0.5, subset_mode='top')),
-        ('ts-ucb', lambda: ExploitUcb(c=1, subset_mode='top', normalise_mode='subset', incr_mode='exploited')),
+        ('ts-eg', lambda: ExploitEGreedy(epsilon=0.5, subset_mode='top')),
+        ('ts-ucb', lambda: ExploitUcb(c=1.0, subset_mode='top', normalise_mode='subset', incr_mode='exploited')),
+        ('ts-sm', lambda: ExploitSoftmax(temperature=1.0, subset_mode='top')),
+        ('ts-esm', lambda: ExploitESoftmax(epsilon=0.5, temperature=1.0, subset_mode='top')),
     ]
     k = len(exploiters)
 

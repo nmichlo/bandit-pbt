@@ -320,14 +320,14 @@ class IMember(abc.ABC):
     def history(self) -> List['HistoryItem']:
         pass
 
-    def __getitem__(self, item) -> 'HistoryItem':
-        return self.history.__getitem__(item)
-
-    def __len__(self) -> int:
-        return self.history.__len__()
-
-    def __iter__(self) -> Iterator['HistoryItem']:
-        return self.history.__iter__()
+    # def __getitem__(self, item) -> 'HistoryItem':
+    #     return self.history.__getitem__(item)
+    #
+    # def __len__(self) -> int:
+    #     return self.history.__len__()
+    #
+    # def __iter__(self) -> Iterator['HistoryItem']:
+    #     return self.history.__iter__()
 
     @abc.abstractmethod
     def step(self, options: dict) -> NoReturn:
