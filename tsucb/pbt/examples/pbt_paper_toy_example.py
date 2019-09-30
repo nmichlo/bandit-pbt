@@ -135,18 +135,18 @@ def run_dual_test():
     # EXPLOITERS
     exploiters = [
         # orig
-        ('orig-ts', lambda: OrigExploitTruncationSelection()),
-        ('orig-ts-eg', lambda: OrigExploitEGreedy(epsilon=0.5, subset_mode='top')),
-        ('orig-ts-ucb', lambda: OrigExploitUcb(c=1.0, subset_mode='top', normalise_mode='subset', incr_mode='exploited')),
-        ('orig-ts-sm', lambda: OrigExploitSoftmax(temperature=1.0, subset_mode='top')),
-        ('orig-ts-esm', lambda: OrigExploitESoftmax(epsilon=0.5, temperature=1.0, subset_mode='top')),
+        # ('orig-ts', lambda: OrigExploitTruncationSelection()),
+        # ('orig-ts-eg', lambda: OrigExploitEGreedy(epsilon=0.5, subset_mode='top')),
+        # ('orig-ts-ucb', lambda: OrigExploitUcb(c=1.0, subset_mode='top', normalise_mode='subset', incr_mode='exploited')),
+        # ('orig-ts-sm', lambda: OrigExploitSoftmax(temperature=1.0, subset_mode='top')),
+        # ('orig-ts-esm', lambda: OrigExploitESoftmax(epsilon=0.5, temperature=1.0, subset_mode='top')),
         # new
         ('ts',         lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUniformRandom())),
         ('ts-egr',     lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonGreedy(epsilon=0.5))),
         ('ts-sm',      lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestSoftmax(temperature=1.0))),
         ('ts-esm',     lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonSoftmax(epsilon=0.5, temperature=1.0))),
         ('ts-ucb',     lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=1.0))),
-        ('ts-eucb',    lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonUcb(epsilon=0.5, c=1.0))),
+        # ('ts-eucb',    lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonUcb(epsilon=0.5, c=1.0))),
     ]
     k = len(exploiters)
 
@@ -170,7 +170,7 @@ def run_dual_test():
 
             scores.append(r_scores)
             converge_times.append(r_conv_time)
-            scores_per_steps += r_score_seq
+            scores_per_steps += np.array(r_score_seq) / options['repeats']
             times.append(t_times)
 
             assert all(a == b for a, b in zip(r_pop_sizes[:-1], r_pop_sizes[1:]))
