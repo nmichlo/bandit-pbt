@@ -1,11 +1,11 @@
-
+import time
 from typing import NamedTuple
 import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
 from helper import util
-from tsucb.pbt.strategies import ExploitUcb, ExploitTruncationSelection, ExploitEGreedy, ExploitSoftmax, ExploitESoftmax
+from tsucb.pbt.strategies import *
 from tsucb.pbt.pbt import Member, Population
 import scipy.stats
 
@@ -98,7 +98,9 @@ def make_plot(ax_col, options, exploiter, steps=200, exploit=True, explore=True,
         # *[ToyMember(ToyHyperParams(np.array([np.random.rand()*0.5, 1.]), 0.01), np.array([.9, .9])) for i in range(3)],
     ], exploiter=exploiter, options=options)
 
+    t0 = time.time()
     population.train(steps, exploit=exploit, explore=explore, show_progress=False)
+    t1 = time.time()
 
     # Calculates the score as the index of the first occurrence greater than 1.18
     scores = np.array([[h.p for h in m.history] for m in population])
@@ -110,7 +112,7 @@ def make_plot(ax_col, options, exploiter, steps=200, exploit=True, explore=True,
 
     # plot_theta(ax_col[0], population, steps=steps, title=title)
     # plot_performance(ax_col[1], population, steps=steps, title=title)
-    return score, time_to_converge, scores.max(axis=0), len(population)
+    return score, time_to_converge, scores.max(axis=0), len(population), t1 - t0
 
 
 # ========================================================================== #
@@ -122,29 +124,39 @@ def run_dual_test():
 
     options = {
         "repeats": 100,
-        "steps": 16,
+        "steps": 15,
         "steps_till_ready": 2,
         "exploration_scale": 0.1,
-        "population_size": 50
+        "population_size": 40
     }
+
+    make_exploit_strategy = lambda: ExploitStrategyTruncationSelection()
 
     # EXPLOITERS
     exploiters = [
-        ('ts', lambda: ExploitTruncationSelection()),
-        ('ts-eg', lambda: ExploitEGreedy(epsilon=0.5, subset_mode='top')),
-        ('ts-ucb', lambda: ExploitUcb(c=1.0, subset_mode='top', normalise_mode='subset', incr_mode='exploited')),
-        ('ts-sm', lambda: ExploitSoftmax(temperature=1.0, subset_mode='top')),
-        ('ts-esm', lambda: ExploitESoftmax(epsilon=0.5, temperature=1.0, subset_mode='top')),
+        # orig
+        ('orig-ts', lambda: OrigExploitTruncationSelection()),
+        ('orig-ts-eg', lambda: OrigExploitEGreedy(epsilon=0.5, subset_mode='top')),
+        ('orig-ts-ucb', lambda: OrigExploitUcb(c=1.0, subset_mode='top', normalise_mode='subset', incr_mode='exploited')),
+        ('orig-ts-sm', lambda: OrigExploitSoftmax(temperature=1.0, subset_mode='top')),
+        ('orig-ts-esm', lambda: OrigExploitESoftmax(epsilon=0.5, temperature=1.0, subset_mode='top')),
+        # new
+        ('ts',         lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUniformRandom())),
+        ('ts-egr',     lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonGreedy(epsilon=0.5))),
+        ('ts-sm',      lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestSoftmax(temperature=1.0))),
+        ('ts-esm',     lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonSoftmax(epsilon=0.5, temperature=1.0))),
+        ('ts-ucb',     lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=1.0))),
+        ('ts-eucb',    lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonUcb(epsilon=0.5, c=1.0))),
     ]
     k = len(exploiters)
 
     # RESULTS
-    scores, converge_times, scores_per_steps = [], [], np.zeros((k, options['steps']))
+    scores, converge_times, scores_per_steps, times = [], [], np.zeros((k, options['steps'])), []
     fig, axs = make_subplots(2, k)
 
     @util.min_time_elapsed(0.5)
     def print_results(i, n):
-        tqdm.write(f"{i:{len(str(n))}d}/{n} {' | '.join(f'{name}: {s:9.7f} {c:9.7f}' for (name, _), s, c in zip(exploiters, np.average(scores, axis=0), np.average(converge_times, axis=0)))}")
+        tqdm.write(f"{i:{len(str(n))}d}/{n} {' | '.join(f'{name}: {s:9.7f} {c:9.7f} {t:5.3f}s' for (name, _), s, c, t in zip(exploiters, np.average(scores, axis=0), np.average(converge_times, axis=0), np.average(times, axis=0)))}")
 
     # EXPERIMENTS
     with tqdm(range(options['repeats'])) as itr:
@@ -154,11 +166,13 @@ def run_dual_test():
                 exploiter = make_exploiter()
                 result = make_plot(axs[:, 0], options, exploiter=exploiter,  steps=options["steps"], exploit=True, explore=True, title=f'PBT {name}')
                 results.append(result)
-            r_scores, r_conv_time, r_score_seq, r_pop_sizes = zip(*results)
+            r_scores, r_conv_time, r_score_seq, r_pop_sizes, t_times = zip(*results)
 
             scores.append(r_scores)
             converge_times.append(r_conv_time)
             scores_per_steps += r_score_seq
+            times.append(t_times)
+
             assert all(a == b for a, b in zip(r_pop_sizes[:-1], r_pop_sizes[1:]))
 
             print_results(i, options['repeats'])

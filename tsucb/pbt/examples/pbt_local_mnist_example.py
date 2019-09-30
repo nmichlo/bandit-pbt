@@ -27,7 +27,7 @@ import matplotlib.pyplot as plt
 import ray
 from ray.tune.examples.mnist_pytorch import ConvNet, get_data_loaders, train, test
 from tqdm import tqdm
-from tsucb.pbt.strategies import ExploitUcb, ExploitTruncationSelection
+from tsucb.pbt.strategies import ExploitUcb, OrigExploitTruncationSelection
 from tsucb.pbt.pbt import Member, Population
 import os
 import ray.tune as tune
@@ -172,7 +172,7 @@ if __name__ == '__main__':
 
     with tqdm(range(repeats)) as itr:
         for i in itr:
-            score_0, scores_0 = experiment(options, ExploitTruncationSelection(), n=n, steps=options["steps"], exploit=True, explore=True, title='PBT Trunc Sel')
+            score_0, scores_0 = experiment(options, OrigExploitTruncationSelection(), n=n, steps=options["steps"], exploit=True, explore=True, title='PBT Trunc Sel')
             score_1, scores_1 = experiment(options, ExploitUcb(subset_mode='top', incr_mode='exploited', normalise_mode='subset'),  n=n, steps=options["steps"], exploit=True, explore=True, title='PBT Ucb Sel')
 
             score += [score_0, score_1]

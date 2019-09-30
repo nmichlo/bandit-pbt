@@ -40,7 +40,7 @@ from ray.tune.examples.mnist_pytorch_trainable import TrainMNIST
 # # Settings are automatically read from environment variables.
 # # https://www.comet.ml/docs/python-sdk/advanced/#comet-configuration-variables
 # from tsucb.pbt.pbt import Member
-# from tsucb.pbt.strategies import ExploitUcb, ExploitTruncationSelection
+# from tsucb.pbt.strategies import ExploitUcb, OrigExploitTruncationSelection
 #
 # EXP = comet_ml.Experiment(
 #     disabled=(not settings.ENABLE_COMET_ML),
@@ -58,7 +58,7 @@ from ray.tune.examples.mnist_pytorch_trainable import TrainMNIST
 # if settings.EXP_EXPLOITER == 'ts-ucb':
 #     exploiter = ExploitUcb
 # elif settings.EXP_EXPLOITER == 'ts':
-#     exploiter = ExploitTruncationSelection
+#     exploiter = OrigExploitTruncationSelection
 # else:
 #     raise KeyError(f'Invalid scheduler specified: {settings.EXP_SCHEDULER}')
 

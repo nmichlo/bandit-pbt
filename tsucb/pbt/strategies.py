@@ -21,7 +21,7 @@
 
 
 from collections import defaultdict
-from typing import Optional, List
+from typing import Optional, List, NoReturn
 
 from tsucb.pbt.pbt import Exploiter, IPopulation, IMember
 import random
@@ -29,11 +29,227 @@ import numpy as np
 
 
 # ========================================================================= #
+# SUGGESTION STRATEGIES                                                     #
+# ========================================================================= #
+
+
+class ISuggest(object):
+    # LISTENERS
+    def _member_on_step(self, member) -> NoReturn:
+        pass
+    def _member_on_explored(self, member) -> NoReturn:
+        pass
+    def _member_on_exploit_replaced(self, member) -> NoReturn:
+        pass
+    def _member_on_used_for_exploit(self, member) -> NoReturn:
+        pass
+
+    def assign_listeners(self, obj):
+        obj._member_on_step = self._member_on_step
+        obj._member_on_explored = self._member_on_explored
+        obj._member_on_exploit_replaced = self._member_on_exploit_replaced
+        obj._member_on_used_for_exploit = self._member_on_used_for_exploit
+        return self
+
+    # SUGGEST
+    def suggest(self, filtered: List['IMember']) -> IMember:
+        raise NotImplementedError()
+
+class _SuggestRandomGreedy(ISuggest):
+    def __init__(self, wrapped_suggest, epsilon=0.5):
+        """
+        :param epsilon: Chance to select wrapped_suggest, otherwise makes the greedy choice.
+        """
+        assert 0 <= epsilon <= 1
+        assert isinstance(wrapped_suggest, ISuggest)
+        self._epsilon = epsilon
+        self._wrapped_suggest = wrapped_suggest
+        # Add listeners
+        self._wrapped_suggest.assign_listeners(self)
+
+    def suggest(self, filtered: List['IMember']) -> IMember:
+        if np.random.random() < self._epsilon:
+            return self._wrapped_suggest.suggest(filtered)
+        else:
+            return filtered[np.argmax([m.score for m in filtered])]
+
+class SuggestUniformRandom(ISuggest):
+    def suggest(self, filtered: List['IMember']) -> IMember:
+        return random.choice(filtered)
+
+class SuggestSoftmax(ISuggest):
+    def __init__(self, temperature=1.0, normalise=True):
+        self._temperature = temperature
+        self._normalise = normalise
+
+    def suggest(self, filtered: List['IMember']) -> IMember:
+        scores = np.array([m.score for m in filtered])
+        # NORMALISE SCORES BETWEEN 0 AND 1
+        if self._normalise:
+            s_min, s_max = np.min(scores), np.max(scores)
+            scores = (scores - s_min) / (s_max - s_min + np.finfo(float).eps)
+        # AVOID OVERFLOW:
+        scores = scores - np.max(scores)  # this should not change the values
+        # CALCULATE PROB
+        vals = np.exp(scores * self._temperature)
+        prob = vals / np.sum(vals)
+        # RETURN CATEGORICALLY SAMPLED
+        return np.random.choice(filtered, p=prob)
+
+class SuggestUcb(ISuggest):
+    def __init__(self, c=1.0, incr_mode='exploited', debug=False):
+        # UCB
+        self.__step_counts = defaultdict(int)
+        self._c = c
+        # MODES
+        assert incr_mode in {'stepped', 'exploited'}
+        self._incr_mode = incr_mode
+        # debug
+        self.debug = debug
+
+    def _visits_incr(self, member):
+        assert isinstance(member, IMember)
+        self.__step_counts[member] += 1
+    def _visits_reset(self, member):
+        assert isinstance(member, IMember)
+        self.__step_counts[member] = 0
+    def _visits_get(self, member) -> int:
+        assert isinstance(member, IMember)
+        return self.__step_counts[member]
+
+    def _debug_message(self, message, member=None):
+        if self.debug:
+            extra = list(self.__step_counts.keys()).index(member) if member and member in self.__step_counts else ''
+            print(f'{message:>10s}:', list(self.__step_counts.values()), extra)
+
+    # THESE TWO STRATEGIES ARE EFFECTIVELY THE SAME - ALWAYS HAPPEN TOGETHER
+    def _member_on_explored(self, member):
+        self._debug_message('EXPLORE', member)
+        self._visits_reset(member)
+    def _member_on_exploit_replaced(self, member):
+        self._debug_message('REPLACE', member)
+        self._visits_reset(member)
+
+    def _member_on_step(self, member):
+        if self._incr_mode == 'stepped':
+            self._visits_incr(member)
+            self._debug_message('STEPPED', member)
+    def _member_on_used_for_exploit(self, member):
+        self._debug_message('EXPLOIT', member)
+        if self._incr_mode == 'exploited':
+            self._visits_incr(member)
+            self._debug_message('EXPLOITED', member)
+
+    def suggest(self, filtered: List['IMember']) -> IMember:
+        scores = np.array([m.score for m in filtered])
+        # normalise scores
+        s_min, s_max = np.min(scores), np.max(scores)
+        scores = (scores - s_min) / (s_max - s_min + np.finfo(float).eps)
+        # step counts
+        # HAS ALWAYS TAKEN AT LEAST ONE STEP - EACH MEMBER IS ALREADY VALIDATED
+        steps = np.array([self._visits_get(m) for m in filtered]) + 1
+        total_steps = np.sum(steps)
+        # ucb scores
+        # we increment the step count by one because everything has already been visited by default
+        ucb_scores = SuggestUcb.ucb1(scores, steps, total_steps, C=self._c)
+        # TODO: randomize order to break ties
+        ucb_ordering = np.argsort(ucb_scores)[::-1]
+        return filtered[ucb_ordering[0]]
+
+    @staticmethod
+    def ucb1(X_i, n_i, n, C=1.):
+        return X_i + C * np.sqrt(np.log2(n) / n_i)
+
+class SuggestEpsilonGreedy(_SuggestRandomGreedy):
+    def __init__(self, epsilon=0.5):
+        super().__init__(SuggestUniformRandom(), epsilon)
+
+class SuggestEpsilonSoftmax(_SuggestRandomGreedy):
+    def __init__(self, epsilon=0.5, temperature=1.0, normalise=True):
+        super().__init__(SuggestSoftmax(temperature=temperature, normalise=normalise), epsilon)
+
+class SuggestEpsilonUcb(_SuggestRandomGreedy):
+    def __init__(self, epsilon=0.5, c=1.0, incr_mode='exploited', debug=False):
+        super().__init__(SuggestUcb(c=c, incr_mode=incr_mode, debug=debug), epsilon)
+
+
+# ========================================================================= #
+# ACCEPT STRATEGIES                                                         #
+# ========================================================================= #
+
+
+class IExploitStrategy(object):
+    def accept(self, suggestion: 'IMember', current: 'IMember', population: 'IPopulation'):
+        raise NotImplementedError('Implement Me')
+    def filter(self, population: 'IPopulation') -> List['IMember']:
+        return list(population)
+
+class ExploitStrategyBinaryTournament(IExploitStrategy):
+    def accept(self, suggestion: 'IMember', current: 'IMember', population: 'IPopulation'):
+        return suggestion.score > current.score
+
+class ExploitStrategyTTestSelection(IExploitStrategy):
+    def __init__(self, confidence=0.95):
+        assert 0 < confidence < 1  # 1 or 0 are probably errors
+        self._confidence = confidence
+    def accept(self, suggestion: 'IMember', current: 'IMember', population: 'IPopulation'):
+        # TODO, step score history is not the same as exploit score history...
+        raise NotImplementedError('Implement Me')
+
+class ExploitStrategyTruncationSelection(IExploitStrategy):
+    def __init__(self, bottom_ratio=0.2, top_ratio=0.2):
+        assert 0 <= bottom_ratio <= 1
+        assert 0 <= top_ratio <= 1
+        self._bottom_ratio = bottom_ratio
+        self._top_ratio = top_ratio
+    def _sorted(self, members):
+        # Sort, but break ties randomly
+        members = list(members)
+        random.shuffle(members)
+        return sorted(members, key=lambda m: m.score)
+    def filter(self, population: 'IPopulation') -> List['IMember']:
+        # Top % of the population
+        idx_hgh = int(len(population) * (1 - self._top_ratio))
+        members = self._sorted(population)
+        return members[idx_hgh:]
+    def accept(self, suggestion: 'IMember', current: 'IMember', population: 'IPopulation'):
+        # If the current agent is in the bottom % of the population
+        idx_low = int(len(population) * self._bottom_ratio)
+        members = self._sorted(population)
+        return members.index(current) < idx_low
+
+
+# ========================================================================= #
+# GENERALISED EXPLOITER                                                     #
+# ========================================================================= #
+
+class GeneralisedExploiter(Exploiter):
+
+    def __init__(self, strategy, suggester=None):
+        super().__init__()
+        if suggester is None:
+            suggester = SuggestUniformRandom()
+        assert isinstance(strategy, IExploitStrategy)
+        assert isinstance(suggester, ISuggest)
+        self._suggester = suggester
+        self._strategy = strategy
+        # add listeners
+        self._suggester.assign_listeners(self)
+
+    def exploit(self, population: 'IPopulation', current: 'IMember') -> Optional['IMember']:
+        filtered = self._strategy.filter(population)
+        suggestion = self._suggester.suggest(filtered)
+        if self._strategy.accept(suggestion, current, population):
+            return suggestion
+        return None
+
+
+# ========================================================================= #
 # STRATEGIES FROM: Population Based Training of Neural Networks             #
 # ========================================================================= #
 
 
-class ExploitTtestSelection(Exploiter):
+class OrigExploitTtestSelection(Exploiter):
     """
     From: Population Based Training of Neural Networks
     Section: 4.1.1 PBT for RL
@@ -49,7 +265,7 @@ class ExploitTtestSelection(Exploiter):
         raise NotImplementedError()
 
 
-class ExploitTruncationSelection(Exploiter):
+class OrigExploitTruncationSelection(Exploiter):
     """
     From: Population Based Training of Neural Networks
     Section: 4.1.1 PBT for RL
@@ -88,7 +304,7 @@ class ExploitTruncationSelection(Exploiter):
         return random.choice(mbrs_top)
 
 
-class ExploitBinaryTournament(Exploiter):
+class OrigExploitBinaryTournament(Exploiter):
     """
     From: Population Based Training of Neural Networks
     Section: 4.3.1 PBT for GANs
@@ -103,13 +319,12 @@ class ExploitBinaryTournament(Exploiter):
         # TODO
         raise NotImplementedError()
 
-
 # ========================================================================= #
 # CUSTOM STRATEGIES - HELPER                                                #
 # ========================================================================= #
 
 
-class _ExploitTsSubset(ExploitTruncationSelection):
+class _OrigExploitTsSubset(OrigExploitTruncationSelection):
     def __init__(self, bottom_ratio=0.2, top_ratio=0.2, subset_mode='top'):
         super().__init__(bottom_ratio=bottom_ratio, top_ratio=top_ratio)
         assert subset_mode in {'top', 'exclude_bottom', 'all'}
@@ -134,7 +349,7 @@ class _ExploitTsSubset(ExploitTruncationSelection):
 # CUSTOM STRATEGIES                                                         #
 # ========================================================================= #
 
-class ExploitEGreedy(_ExploitTsSubset):
+class OrigExploitEGreedy(_OrigExploitTsSubset):
     def __init__(self, epsilon=0.5, bottom_ratio=0.2, top_ratio=0.2, subset_mode='top'):
         super().__init__(bottom_ratio=bottom_ratio, top_ratio=top_ratio, subset_mode=subset_mode)
         self._epsilon = epsilon
@@ -146,7 +361,7 @@ class ExploitEGreedy(_ExploitTsSubset):
         else:
             return subset[np.argmax([m.score for m in subset])]
 
-class ExploitSoftmax(_ExploitTsSubset):
+class OrigExploitSoftmax(_OrigExploitTsSubset):
     def __init__(self, temperature=1.0, bottom_ratio=0.2, top_ratio=0.2, subset_mode='top'):
         super().__init__(bottom_ratio=bottom_ratio, top_ratio=top_ratio, subset_mode=subset_mode)
         self._temperature = temperature
@@ -162,7 +377,7 @@ class ExploitSoftmax(_ExploitTsSubset):
         # RETURN CATEGORICALLY SAMPLED
         return np.random.choice(subset, p=prob)
 
-class ExploitESoftmax(ExploitSoftmax):
+class OrigExploitESoftmax(OrigExploitSoftmax):
     def __init__(self, epsilon=0.5, temperature=1.0, bottom_ratio=0.2, top_ratio=0.2, subset_mode='top'):
         super().__init__(temperature=temperature, bottom_ratio=bottom_ratio, top_ratio=top_ratio, subset_mode=subset_mode)
         self._epsilon = epsilon
@@ -174,7 +389,7 @@ class ExploitESoftmax(ExploitSoftmax):
             return subset[np.argmax([m.score for m in subset])]
 
 
-class ExploitUcb(_ExploitTsSubset):
+class OrigExploitUcb(_OrigExploitTsSubset):
     def __init__(self, bottom_ratio=0.2, top_ratio=0.2, c=0.1, subset_mode='top', incr_mode='exploited', reset_mode='exploited', select_mode='ucb', normalise_mode='subset', debug=False):
         # >>> high c is BAD
         # >>> low c is BAD
@@ -259,7 +474,7 @@ class ExploitUcb(_ExploitTsSubset):
 
         # ucb scores
         # we increment the step count by one because everything has already been visited by default
-        ucb_scores = ExploitUcb.ucb1(scores, steps, total_steps, C=self._c)
+        ucb_scores = OrigExploitUcb.ucb1(scores, steps, total_steps, C=self._c)
 
         # mode
         if self._select_mode == 'ucb':

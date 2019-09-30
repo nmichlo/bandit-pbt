@@ -99,8 +99,8 @@ class UcbExperimentArgs(NamedTuple):
                 debug=self.debug
             )
         elif self.pbt_exploiter == 'ts':
-            from tsucb.pbt.strategies import ExploitTruncationSelection
-            return ExploitTruncationSelection(
+            from tsucb.pbt.strategies import OrigExploitTruncationSelection
+            return OrigExploitTruncationSelection(
                 bottom_ratio=self.ts_ratio_bottom,
                 top_ratio=self.ts_ratio_top,
             )
