@@ -123,11 +123,11 @@ def make_plot(ax_col, options, exploiter, steps=200, exploit=True, explore=True,
 def run_dual_test():
 
     options = {
-        "repeats": 100,
-        "steps": 15,
+        "repeats": 1000,
+        "steps": 20,
         "steps_till_ready": 2,
         "exploration_scale": 0.1,
-        "population_size": 40
+        "population_size": 50
     }
 
     make_exploit_strategy = lambda: ExploitStrategyTruncationSelection()
@@ -145,7 +145,10 @@ def run_dual_test():
         ('ts-egr',     lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonGreedy(epsilon=0.5))),
         ('ts-sm',      lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestSoftmax(temperature=1.0))),
         ('ts-esm',     lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonSoftmax(epsilon=0.5, temperature=1.0))),
-        ('ts-ucb',     lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=1.0))),
+        ('ts-ucb-0.1',     lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=0.1))),
+        ('ts-ucb-0.5',     lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=0.5))),
+        ('ts-ucb-1.0',     lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=1.0))),
+        ('ts-ucb-2.0',     lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=2.0))),
         # ('ts-eucb',    lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonUcb(epsilon=0.5, c=1.0))),
     ]
     k = len(exploiters)
