@@ -92,6 +92,7 @@ class MemberTorch(Member):
         return config
 
     def _step(self, options: dict) -> NoReturn:
+        # TODO this needs to be every N steps, NOT EVERY EPOCH...
         self._trainable.train()
         return None
 
