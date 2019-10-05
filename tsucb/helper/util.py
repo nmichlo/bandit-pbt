@@ -147,11 +147,13 @@ def min_time_elapsed(func_or_seconds, seconds=None):
     Decorator that only runs a function if the minimum time has elapsed since the last run.
     """
     import time
-    last_time = 0
+    last_time = None
     def decorator(func):
         def inner(*args, **kwargs):
             nonlocal last_time
             curr_time = time.time()
+            if last_time is None:  # wait until <seconds> after first call
+                last_time = curr_time
             if last_time + seconds <= curr_time:
                 last_time = curr_time
                 return func(*args, **kwargs)

@@ -19,14 +19,8 @@
 #  SOFTWARE.
 
 
-import os
-import torch.utils.data
-import torchvision
-from torchvision import transforms
-from tqdm import tqdm
-from cachier import cachier, pickle_core as cachier_pickle_core
-from helper import util
-from filelock import FileLock
+import os as _os
+from cachier import cachier as _cachier, pickle_core as _cachier_pickle_core
 
 
 # ========================================================================= #
@@ -34,12 +28,12 @@ from filelock import FileLock
 # ========================================================================= #
 
 
-DATA_DIR = os.path.expanduser(os.getenv('DATA_DIR', '~/workspace/data'))
+DATA_DIR = _os.path.expanduser(_os.getenv('DATA_DIR', '~/workspace/data'))
 print(f'DATA_DIR="{DATA_DIR}"')
 
 # Change cache directory
-cachier_pickle_core.CACHIER_DIR = os.path.join(DATA_DIR, 'cachier')
-cachier_pickle_core.EXPANDED_CACHIER_DIR = os.path.expanduser(cachier_pickle_core.CACHIER_DIR)
+_cachier_pickle_core.CACHIER_DIR = _os.path.join(DATA_DIR, 'cachier')
+_cachier_pickle_core.EXPANDED_CACHIER_DIR = _os.path.expanduser(_cachier_pickle_core.CACHIER_DIR)
 
 
 # ========================================================================= #
@@ -47,23 +41,28 @@ cachier_pickle_core.EXPANDED_CACHIER_DIR = os.path.expanduser(cachier_pickle_cor
 # ========================================================================= #
 
 
-@cachier()
-def cal_batch_mean_std(dataset_cls):
+@_cachier()
+def cal_dataset_mean_std(dataset_cls, batch_size=16):
+    # IMPORTS
+    import torch.utils.data
+    from torchvision import transforms
+    from tqdm import tqdm
+    # >>> FUNC <<<
     # Datasets are not threadsafe
     # with FileLock(f"{DATA_DIR}/data.lock"):
     train_transform = transforms.Compose([transforms.ToTensor()])
     train_set = dataset_cls(root=DATA_DIR, train=True, download=True, transform=train_transform)
-    loader = torch.utils.data.DataLoader(train_set, batch_size=16, num_workers=0, shuffle=False)
+    loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size, num_workers=0, shuffle=False)
 
     n = len(loader.dataset)
 
     mean, mean2 = 0, 0
     for images, _ in tqdm(loader, f'{dataset_cls.__name__} mean & std'):
-        batch_size = images.size(0)  # batch size (the last batch can have smaller size!)
-        images = images.view(batch_size, images.size(1), -1)
+        batch_s = images.size(0)  # batch size (the last batch can have smaller size!)
+        images = images.view(batch_s, images.size(1), -1)
         # probably not super accurate due to "* (batch_size / n)" as this number is small
-        mean += images.mean((0, 2)) * (batch_size / n)
-        mean2 += (images ** 2).mean((0, 2)) * (batch_size / n)
+        mean += images.mean((0, 2)) * (batch_s / n)
+        mean2 += (images ** 2).mean((0, 2)) * (batch_s / n)
 
     std = (mean2 - mean ** 2) ** 0.5
     return mean.detach().numpy(), std.detach().numpy()
@@ -73,6 +72,13 @@ def cal_batch_mean_std(dataset_cls):
 # ========================================================================= #
 
 def get_dataset_class(dataset_name):
+    """
+    Gets the class of a dataset from torchvision.datasets by the name.
+    """
+    # IMPORTS
+    import torchvision
+    from tsucb.helper import util
+    # >>> FUNC <<<
     if type(dataset_name) != str:
         dataset_name = dataset_name.__name__
     assert dataset_name not in {'DatasetFolder', 'VisionDataset', 'ImageFolder'}, 'An abstract dataset was specified'
@@ -81,10 +87,13 @@ def get_dataset_class(dataset_name):
     return datasets[dataset_name]
 
 def get_datasets(dataset_name):
+    # IMPORTS
+    from torchvision import transforms
+    # >>> FUNC <<<
     dataset_cls = get_dataset_class(dataset_name)
     # Datasets are not threadsafe
     # with FileLock(f"{DATA_DIR}/data.lock"):
-    mean, std = cal_batch_mean_std(dataset_cls)
+    mean, std = cal_dataset_mean_std(dataset_cls)
     transform = transforms.Compose([
         transforms.ToTensor(),
         transforms.Normalize(mean, std),
@@ -93,21 +102,28 @@ def get_datasets(dataset_name):
     testset = dataset_cls(root=DATA_DIR, train=False, download=True, transform=transform)
     return trainset, testset
 
-def get_dataset_loaders(dataset_name, batch_size=16, shuffle=True, num_workers=1):
-    trainset, testset = get_datasets(dataset_name)
-    trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers)
-    testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
-    return trainloader, testloader
-
-def get_dataset_maker(dataset_name):
-    def inner(config):
-        return get_dataset_loaders(
-            dataset_name,
-            batch_size=config.get('batch_size', 16),
-            shuffle=config.get('shuffle', True),
-            num_workers=config.get('num_workers', 1),
-        )
-    return inner
+# def get_dataset_loaders(dataset_name, batch_size=16, shuffle=True, num_workers=0, pin_memory=False):
+#     # IMPORTS
+#     import torch.utils.data
+#     # >>> FUNC <<<
+#     trainset, testset = get_datasets(dataset_name)
+#     trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers, pin_memory=pin_memory)
+#     testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=pin_memory)
+#     return trainloader, testloader
+#
+# def make_dataset_loaders(dataset_name, config):
+#     return get_dataset_loaders(
+#         dataset_name,
+#         batch_size=config.get('batch_size', 16),
+#         shuffle=config.get('shuffle', True),
+#         num_workers=config.get('num_workers', 1) if config['use_gpu'] else None,
+#         pin_memory=config.get('pin_memory', True) if config['use_gpu'] else False,
+#     )
+#
+# def get_dataset_loaders_maker(dataset_name):
+#     def inner(config):
+#         make_dataset_loaders(dataset_name, config)
+#     return inner
 
 
 # ========================================================================= #

@@ -22,14 +22,14 @@
 
 import atexit
 import random
-import settings
+import tsucb.settings
 import comet_ml
 from pprint import pprint
 import numpy as np
 import torch
 import copy
 import ray.tune
-from pbt.pbt import Member
+from tsucb.pbt.pbt import Member
 from ray.tune.examples.mnist_pytorch_trainable import TrainMNIST
 
 

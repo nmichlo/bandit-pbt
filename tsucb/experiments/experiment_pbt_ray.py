@@ -21,7 +21,7 @@
 
 import atexit
 import random
-import settings
+import tsucb.settings
 import comet_ml
 import ray
 import ray.tune as tune

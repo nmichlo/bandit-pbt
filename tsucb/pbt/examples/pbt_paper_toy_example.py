@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
-from helper import util
+from tsucb.helper import util
 from tsucb.pbt.strategies import *
 from tsucb.pbt.pbt import Member, Population
 import scipy.stats

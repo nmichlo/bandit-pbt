@@ -24,7 +24,7 @@ from typing import List, Iterator, NamedTuple, NoReturn, Optional
 import abc
 import numpy as np
 from tqdm import tqdm
-from helper.util import shuffled
+from tsucb.helper.util import shuffled
 
 
 # ========================================================================= #
@@ -145,7 +145,7 @@ class Population(IPopulation):
     def exploiter(self) -> 'IExploiter':
         return self._exploiter
 
-    def train(self, n=None, exploit=True, explore=True, show_progress=True, randomize_order=True) -> 'IPopulation':
+    def train(self, n=None, exploit=True, explore=True, show_progress=True, show_sub_progress=False, randomize_order=True) -> 'IPopulation':
         """
         Based on:
         + The original paper
@@ -160,7 +160,7 @@ class Population(IPopulation):
         if n is None:
             n = self.options.get('steps', 100)
 
-        itr = tqdm(range(n)) if show_progress else range(n)
+        itr = tqdm(range(n), 'steps') if show_progress else range(n)
 
         # TODO: loops should be swapped for async operations
         #       - original paper describes unsyncronised operations, so members can
@@ -168,6 +168,10 @@ class Population(IPopulation):
         for i in itr:
             # partial async simulation with members not finishing in the same order.
             ids_members = shuffled(enumerate(self.members), enabled=randomize_order)
+
+            if show_sub_progress:
+                ids_members = tqdm(ids_members, 'members')
+
             for idx, member in ids_members:  # should be async
 
                 # one step of optimisation using hyper-parameters h
@@ -194,6 +198,9 @@ class Population(IPopulation):
                 # TODO: needed for async operations
                 # self._update(idx, member)
 
+            if self._options.get('debug', False):
+                print(f'[STEP COMPLETE]: max_score={max(m.score for m in self)} min_score={min(m.score for m in self)}')
+
         return self
 
     def _step(self, member) -> NoReturn:
@@ -201,7 +208,7 @@ class Population(IPopulation):
         self.exploiter._member_on_step(member)
 
     def _eval(self, member) -> NoReturn:
-        member.eval(options=self.options)
+        p = member.eval(options=self.options)
 
     def _is_ready(self, member) -> bool:
         return member.is_ready(self)
@@ -211,6 +218,8 @@ class Population(IPopulation):
         if exploited_member is not None:
             self.exploiter._member_on_used_for_exploit(exploited_member)
             self.exploiter._member_on_exploit_replaced(member)
+            if self._options.get('debug', False):
+                print(f'[EXPLOIT]: {member.id} ({member.score}) <- {exploited_member.id} ({exploited_member.score})')
             return True
         return False
 
