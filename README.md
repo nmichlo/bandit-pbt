@@ -29,45 +29,6 @@ sacct -j {jobid}             # view all job steps
 scancel $(sacct -j {jobid} | grep RUNNING | grep "{jobid}\." | awk '{print $1}')
 ```
 
-
-### [Slurm Ray Submission Script](https://ray.readthedocs.io/en/latest/deploying-on-slurm.html):
-
-*NB* If your cluster requires it, remember to export HTTP_PROXY and HTTPS_PROXY
-
-
-job.sh
-```shell script
-#!/bin/bash
-
-#SBATCH --job-name=ray_pytorch_mnist
-#SBATCH --nodes=5
-#SBATCH --tasks-per-node 1
-
-# bringup ray head and workers, defines $RAY_ADDRESS, ray_start & ray_stop
-source ./scripts/bringup_ray_cluster.sh
-
-ray_stop   # just to be safe
-ray_start  # bringup the cluster
-
-# launch ray script
-python main.py | tee "${SLURM_JOB_ID}_log.txt"
-
-# cleanup our mess:
-# we do this so we can test manually in an $ `salloc` interactive shell
-ray_stop
-
-```
-
-
-main.py
-```python
-import os
-import ray
-
-ray.init(address=os.environ["RAY_ADDRESS"])
-```
-
-
 ### Development Environment:
 
 - [Install Pyenv](https://github.com/pyenv/pyenv#installation):
@@ -104,32 +65,3 @@ ray.init(address=os.environ["RAY_ADDRESS"])
 
   conda install pytorch torchvision cudatoolkit=10.0 -c pytorch
   ```
-  
-- [Install Tensorflow]
-
-    ```shell script
-      pip install tensorflow-gpu==2.0.0-beta # optional: stop annying ray warnings
-      pip install gast==0.2.2 # downgrade from 3.x.x to fix errors for tensorflow 2.0.0rc
-    ```
-
-- [Install Ray 0.8.0](https://ray.readthedocs.io/en/latest/installation.html#latest-snapshots-nightlies):
-
-  ```shell script
-  pip install mujoco-py  # optional: mujoco physics simulations for openai gym (requires local license)
-  
-  pip install pandas                     # optional: ray extra, analysis utilities
-  pip install psutil                     # optional: ray extra, memory usage
-  pip install setproctitle               # optional: ray extra, custom worker names
-  pip install tensorflow-gpu==2.0.0-beta # optional: stop annying ray warnings
-  
-  pip install <ray-0.8.0 wheel url>      # https://ray.readthedocs.io/en/latest/installation.html#latest-snapshots-nightlies
-  ```
-
-    
-
-
-
-    
-    
-    
-

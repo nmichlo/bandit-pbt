@@ -28,9 +28,7 @@ from pprint import pprint
 import numpy as np
 import torch
 import copy
-import ray.tune
 from tsucb.pbt.pbt import Member
-from ray.tune.examples.mnist_pytorch_trainable import TrainMNIST
 
 
 # ========================================================================= #

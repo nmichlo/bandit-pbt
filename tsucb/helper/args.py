@@ -107,8 +107,6 @@ class UcbExperimentArgs(NamedTuple):
         else:
             raise KeyError(f'Invalid exploiter: {self.pbt_exploiter}')
 
-    def make_ray_exploiter(self):
-        raise NotImplementedError('This is not yet implemented')
 
     @staticmethod
     def _create_parser(defaults=None) -> 'argparse.ArgumentParser':
