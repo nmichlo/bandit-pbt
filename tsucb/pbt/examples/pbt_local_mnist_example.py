@@ -19,25 +19,38 @@
 #  SOFTWARE.
 
 
-
-import argparse
-import torch
-import torch.optim as optim
 import numpy as np
 import os
+from copy import deepcopy
 
 from typing import Tuple, NoReturn
-from copy import deepcopy
 from tsucb.helper.torch.trainable import TorchTrainable
 from tsucb.pbt.pbt import Member, Population, IExploiter, Exploiter
 from tsucb.pbt.strategies import GeneralisedExploiter, SuggestUniformRandom, ExploitStrategyTruncationSelection
+
+
+# ========================================================================= #
+# GENERATORS                                                                #
+# ========================================================================= #
+
+def random_bool():
+    return np.random.random() < 0.5
+
+def random_uniform(a, b):
+    return np.random.uniform(a, b)
+
+def random_log_uniform(a, b):
+    a, b = np.log(a), np.log(b)
+    sample = random_uniform(a, b)
+    return np.exp(sample)
 
 # ========================================================================= #
 # MUTATIONS                                                                 #
 # ========================================================================= #
 
+
 def perturb(value, low, high, min, max):
-    if np.random.random() < 0.5:
+    if random_bool():
         val = low*value
     else:
         val = high*value
@@ -45,18 +58,39 @@ def perturb(value, low, high, min, max):
     return val
 
 def uniform_perturb(value, low, high, min, max):
-    val = np.random.uniform(low*value, high*value)
+    val = random_uniform(low*value, high*value)
     val = np.clip(val, min, max)
     return val
+
+def uniform_log_perturb(value, low, high, min, max):
+    val = random_uniform(low * value, high * value)
+    val = np.clip(val, min, max)
+    return
+
+def select(value, values):
+    return np.random.choice(values)
+
+def select_near(value, values):
+    idx = values.index(value)
+    options = [idx]
+    if idx > 0:
+        options.append(idx - 1)
+    if idx < len(values)-1:
+        options.append(idx + 1)
+    return np.random.choice(idx)
 
 MUTATIONS = {
     'perturb': perturb,
     'uniform_perturb': uniform_perturb,
+    'select': select,
+    'select_near': select_near,
 }
+
 
 # ========================================================================= #
 # MEMBER                                                                    #
 # ========================================================================= #
+
 
 CHECKPOINT_DIR = './checkpoints'
 CHECKPOINT_MAP = {}
@@ -66,7 +100,7 @@ class MemberTorch(Member):
 
     def __init__(self, config):
         super().__init__()
-        self._trainable = TorchTrainable(config)
+        self._trainable = TorchTrainable(deepcopy(config))
 
     def _save_theta(self, id):
         CHECKPOINT_MAP[id] = os.path.join(CHECKPOINT_DIR, f'checkpoint_{id}.dat')
@@ -77,12 +111,14 @@ class MemberTorch(Member):
 
     def copy_h(self) -> dict:
         return self._trainable.get_config()
+
     def _set_h(self, h) -> NoReturn:
         self._trainable = TorchTrainable(config=h)
 
     def _explored_h(self, population: 'Population') -> dict:
         config = self._trainable.get_config()
         mutations = config['mutations']
+        # traverse down dictionary based on splitting mutation keys on '\'
         assert len(mutations) > 0
         for path, args in mutations.items():
             current, keys = config, path.split('/')
@@ -108,41 +144,44 @@ class MemberTorch(Member):
 
 def main():
 
-    exploiter = GeneralisedExploiter(
-        strategy=ExploitStrategyTruncationSelection(),
-        suggester=SuggestUniformRandom()
+    member_options = dict(
+        model='example',
+        dataset='FashionMNIST',
+        loss='MSELoss',
+        optimizer='SGD',
+
+        model_options={},
+        dataset_options={},
+        loss_options={},
+        optimizer_options=dict(
+            lr=random_log_uniform(0.0001, 0.1),
+            momentum=random_uniform(0.01, 0.99),
+        ),
+
+        mutations={
+            'optimizer_options/lr':       ('perturb', 0.8, 1.25, 0.0001, 0.1),  # 0.8 < 1/1.2  shifts exploration towards getting smaller
+            'optimizer_options/momentum': ('perturb', 0.8, 1.25, 0.01, 0.99),   # 0.8 = 1/1.25 is balanced
+        },
+
+        # TODO: move into separate dict
+        train_log_interval=-1,
+        train_subset=1000,
+        batch_size=16,
+        use_gpu=True,
     )
 
-    members = [
-        MemberTorch(dict(
-            model='example',
-            dataset='MNIST',
-            loss='MSELoss',
-
-            optimizer='SGD',
-            optimizer_options=dict(
-                lr=np.random.uniform(0.0001, 0.1),
-                momentum=np.random.uniform(0.99, 0.01),
-            ),
-
-            mutations={
-                'optimizer_options/lr': ('perturb', 0.8, 1.2, 0.0001, 0.1),
-                'optimizer_options/momentum': ('perturb', 0.8, 1.2, 0.01, 0.99),
-            },
-
-            train_log_interval=-1,
-            train_subset=1000,
-            batch_size=16,
-
-            use_gpu=True,
-        )) for _ in range(10)
-    ]
-
-    population = Population(members, exploiter, dict(
-        steps_till_ready=1,
-        steps=20,
-        debug=True,
-    ))
+    population = Population(
+        members=[MemberTorch(member_options) for _ in range(1)],
+        exploiter=GeneralisedExploiter(
+            strategy=ExploitStrategyTruncationSelection(),
+            suggester=SuggestUniformRandom()
+        ),
+        options=dict(
+            steps_till_ready=1,
+            steps=20,
+            debug=True,
+        )
+    )
 
     population.train(show_sub_progress=True)
 
