@@ -23,7 +23,7 @@ import torchvision
 import torch.nn as nn
 import torch.nn.modules
 import torch.nn.functional as F
-
+from tqdm import tqdm
 from tsucb.helper import util
 
 
@@ -31,10 +31,10 @@ from tsucb.helper import util
 # HELPER                                                                    #
 # ========================================================================= #
 
-@util.min_time_elapsed(1)
-def _log_train_step(batch_i, loader, loss):
-    pass
-    # print(f'[{batch_i*loader.batch_size}/{len(loader.dataset)} {100.*batch_i/len(loader):.1f}%] Loss: {loss.item():.6f}')
+# @util.min_time_elapsed(1)
+# def _log_train_step(batch_i, loader, loss):
+#     # pass
+#     tqdm.write(f'[{batch_i*loader.batch_size}/{len(loader.dataset)} {100.*batch_i/len(loader):.1f}%] Loss: {loss.item():.6f}')
 
 def _train_step(model, device, optimizer, criterion, data, target):
     data, target = data.to(device), target.to(device)
@@ -66,7 +66,7 @@ class StepTrainer(object):
             # TRAINING STEP
             loss = _train_step(model, device, optimizer, criterion, data, target)
             # LOG:
-            _log_train_step(batch_i, train_loader, loss)
+            # _log_train_step(batch_i, train_loader, loss)
 
 def train(model, device, train_loader, optimizer, criterion):
     # FROM: https://github.com/pytorch/examples/blob/master/mnist/main.py
@@ -75,7 +75,7 @@ def train(model, device, train_loader, optimizer, criterion):
         # TRAINING STEP
         loss = _train_step(model, device, optimizer, criterion, data, target)
         # LOG:
-        _log_train_step(batch_i, train_loader, loss)
+        # _log_train_step(batch_i, train_loader, loss)
 
 def test(model, device, test_loader, criterion):
     # FROM: https://github.com/pytorch/examples/blob/master/mnist/main.py

@@ -155,7 +155,7 @@ class Population(IPopulation):
     def exploiter(self) -> 'IExploiter':
         return self._exploiter
 
-    def train(self, n=None, exploit=True, explore=True, show_progress=True, show_sub_progress=False, randomize_order=True) -> 'IPopulation':
+    def train(self, n=None, exploit=True, explore=True, show_progress=True, randomize_order=True) -> 'IPopulation':
         """
         Based on:
         + The original paper
@@ -179,10 +179,13 @@ class Population(IPopulation):
             # partial async simulation with members not finishing in the same order.
             ids_members = shuffled(enumerate(self.members), enabled=randomize_order)
 
-            if show_sub_progress:
-                ids_members = tqdm(ids_members, 'members')
+            if show_progress:
+                max_score = max(m.score for m in self)
 
-            for idx, member in ids_members:  # should be async
+            for j, (dx, member) in enumerate(ids_members):  # should be async
+
+                if show_progress:
+                    itr.set_description(f'step {i+1}/{n} (member {j+1}/{len(self.members)}) [{max_score}]')
 
                 # one step of optimisation using hyper-parameters h
                 self._step(member)
@@ -194,7 +197,7 @@ class Population(IPopulation):
 
                     if exploit:
                         if self.debug:
-                            print(f'[EXPLOITING]: {member.id}')
+                            tqdm.write(f'[EXPLOITING]: {member.id}')
                         # replace the member using the rest of population to find a better solution
                         exploited = self._exploit(member)
                         # only explore if we exploited

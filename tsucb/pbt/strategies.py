@@ -22,7 +22,7 @@
 
 from collections import defaultdict
 from typing import Optional, List, NoReturn
-
+from tqdm import tqdm
 from tsucb.helper.util import sorted_random_ties
 from tsucb.pbt.pbt import Exploiter, IPopulation, IMember
 import random
@@ -126,7 +126,7 @@ class SuggestUcb(ISuggest):
     def _debug_message(self, message, member=None):
         if self.debug:
             extra = list(self.__step_counts.keys()).index(member) if member and member in self.__step_counts else ''
-            print(f'{message:>10s}:', list(self.__step_counts.values()), extra)
+            tqdm.write(f'{message:>10s}:', list(self.__step_counts.values()), extra)
 
     # THESE TWO STRATEGIES ARE EFFECTIVELY THE SAME - ALWAYS HAPPEN TOGETHER
     def _member_on_explored(self, member):
@@ -219,7 +219,7 @@ class ExploitStrategyTruncationSelection(IExploitStrategy):
         self._temp_sorted = None
 
     def filter(self, population: 'IPopulation') -> List['IMember']:
-        # Cached sorted population
+        # USE CACHED SORT RESULT
         members, self._temp_sorted = self._temp_sorted, None
         # Top % of the population
         idx_hgh = int(len(population) * (1 - self._top_ratio))
@@ -230,7 +230,7 @@ class ExploitStrategyTruncationSelection(IExploitStrategy):
         idx_low = int(len(population) * self._bottom_ratio)
         members = sorted_random_ties(population, key=lambda m: m.score)
         is_blocked = members.index(current) >= idx_low
-        # cache sort result
+        # CACHE SORT RESULT IF NEEDED
         self._temp_sorted = None if is_blocked else members
         # return
         return is_blocked
@@ -308,7 +308,6 @@ class OrigExploitTruncationSelection(Exploiter):
         idx_hgh = int(len(population) * (1 - self._top_ratio))
 
         # we rank all agents in the population by episodic reward (low to high)
-        # TODO BREAK TIES
         members = sorted_random_ties(population, key=lambda m: m.score)
 
         #  If the current agent is in the bottom 20% of the population
@@ -445,7 +444,7 @@ class OrigExploitUcb(_OrigExploitTsSubset):
     def _debug_message(self, message, member=None):
         if self.debug:
             extra = list(self.__step_counts.keys()).index(member) if member and member in self.__step_counts else ''
-            print(f'{message:>10s}:', list(self.__step_counts.values()), extra)
+            tqdm.write(f'{message:>10s}: {list(self.__step_counts.values())} {extra}')
 
     # THESE TWO STRATEGIES ARE EFFECTIVELY THE SAME
     def _member_on_explored(self, member):
@@ -471,9 +470,9 @@ class OrigExploitUcb(_OrigExploitTsSubset):
 
     def _choose(self, subset: List['IMember'], population: 'IPopulation', member: 'IMember') -> 'IMember':
         if self.debug:
-            print()
+            tqdm.write()
             self._debug_message('REPLACING', member)
-            print()
+            tqdm.write()
 
         # assert len(_pop) == len(members), 'Not all members were included'
         # normalise scores

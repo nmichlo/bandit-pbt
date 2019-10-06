@@ -22,9 +22,12 @@
 
 import atexit
 import random
+
+from tqdm import tqdm
+
 import tsucb.settings
 import comet_ml
-from pprint import pprint
+from pprint import pprint, pformat
 import numpy as np
 import torch
 import copy
@@ -116,7 +119,7 @@ class ModelTrainer(Member):
 
         test_loss /= len(test_loader.dataset)
 
-        print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
+        tqdm.write('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
             test_loss, correct, len(test_loader.dataset),
             100. * correct / len(test_loader.dataset)))
 
@@ -156,10 +159,9 @@ class ModelTrainer(Member):
 # )
 
 
-# print(f'Best config is: {analysis.get_best_config(metric="mean_accuracy")}')
-# print(f'All the configs are:')
-# pprint(analysis.get_all_configs())
-
+# tqdm.write(f'Best config is: {analysis.get_best_config(metric="mean_accuracy")}')
+# tqdm.write(f'All the configs are:')
+# tqdm.write(pformat(analysis.get_all_configs()))
 
 # ========================================================================= #
 # END                                                                       #

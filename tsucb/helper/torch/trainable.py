@@ -135,8 +135,8 @@ class TorchTrainable(object):
             trainset,
             batch_size=config['batch_size'],
             shuffle=config.get('train_shuffle', True),  # TODO fix True, this may effect training after exploitation
-            # num_workers=config.get('num_workers', 2 if use_cuda else 0),  # TODO: fix 2 when use_cuda
-            # pin_memory=config.get('pin_memory', use_cuda), # TODO: fix True when use_cuda
+            num_workers=config.get('num_workers', 2 if use_cuda else 0),  # TODO: fix 2 when use_cuda
+            pin_memory=config.get('pin_memory', use_cuda), # TODO: fix True when use_cuda
             # **({'sampler': SubsetRandomSampler(indices=np.random.choice(a=np.arange(0, len(trainset)), size=config['train_subset'], replace=False))} if config.get('train_subset', False) else {})
         )
 
@@ -145,8 +145,8 @@ class TorchTrainable(object):
             testset,
             batch_size=config['batch_size'],
             shuffle=False,
-            # num_workers=config.get('num_workers', 2 if use_cuda else 0),  # TODO: fix 2 when use_cuda
-            # pin_memory=config.get('pin_memory', use_cuda),  # TODO: fix True when use_cuda
+            num_workers=config.get('num_workers', 2 if use_cuda else 0),  # TODO: fix 2 when use_cuda
+            pin_memory=config.get('pin_memory', use_cuda),  # TODO: fix True when use_cuda
         )
 
         # TRAINER

@@ -175,7 +175,7 @@ def main():
         steps_till_ready=1,
         steps=20,
         debug=False,
-        warn_exploit_self=False,
+        warn_exploit_self=True,
     )
 
     def make_exploiter():
@@ -190,7 +190,7 @@ def main():
         options=population_options
     )
 
-    population.train(show_sub_progress=True)
+    population.train()
 
 if __name__ == '__main__':
     main()
@@ -198,10 +198,6 @@ if __name__ == '__main__':
 # ========================================================================= #
 # PBT                                                                       #
 # ========================================================================= #
-
-
-
-
 
 
 # def main():

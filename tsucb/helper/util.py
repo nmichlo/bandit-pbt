@@ -111,6 +111,7 @@ def get_module_modules(module): return get_module_type(module, 'module')
 
 def print_module_class_heirarchy(module, root_cls_name):
     import inspect
+    from tqdm import tqdm
     # get classes
     classes = get_module_classes(module)
     parent_childrens = {}
@@ -118,7 +119,7 @@ def print_module_class_heirarchy(module, root_cls_name):
         (parent,) = cls.__bases__
         parent_childrens.setdefault(parent.__name__, []).append(name)
     def recurse(name, depth=0):
-        print('    ' * depth, '-', f'{name:20s}', inspect.signature(classes[name]) if name in classes else '')
+        tqdm.write('    ' * depth, '-', f'{name:20s}', inspect.signature(classes[name]) if name in classes else '')
         if name in parent_childrens:
             for k in parent_childrens[name]:
                 recurse(k, depth+1)
@@ -140,6 +141,8 @@ def print_separator(text, width=100, char_v='#', char_h='=', char_corners=None):
     assert len(char_h) == 1
     import textwrap
     import pprint
+    from tqdm import tqdm
+
     w = width-4
     lines = []
     lines.append(f'\n{char_corners} {char_h*w} {char_corners}')
@@ -149,7 +152,7 @@ def print_separator(text, width=100, char_v='#', char_h='=', char_corners=None):
         for wrapped in (textwrap.wrap(line, w, tabsize=4) if line.strip() else ['']):
             lines.append(f'{char_v} {wrapped:{w}s} {char_v}')
     lines.append(f'{char_corners} {char_h*w} {char_corners}\n')
-    print('\n'.join(lines))
+    tqdm.write('\n'.join(lines))
 
 
 # ========================================================================= #

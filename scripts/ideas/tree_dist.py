@@ -1,5 +1,6 @@
 
 import numpy as np
+from tqdm import tqdm
 
 k = 4
 r = 10
@@ -83,38 +84,38 @@ for idx_replace, idx_exploit in replace_exploit:
     step_dist_hist.append(step_dists.copy())
     expl_dist_hist.append(expl_dists.copy())
 
-print('\nPARENTS:')
+tqdm.write('\nPARENTS:')
 for parents in parent_hist[1:]:
-    print(' '.join(f'{p}' for p in parents)[::-1])
+    tqdm.write(' '.join(f'{p}' for p in parents)[::-1])
 
-print('\nEXPLOIT COUNTS:')
+tqdm.write('\nEXPLOIT COUNTS:')
 for expl_count in expl_count_hist[1:]:
-    print(' '.join(f'{p}' for p in expl_count)[::-1])
+    tqdm.write(' '.join(f'{p}' for p in expl_count)[::-1])
 
-print('\nSTEP COUNTS:')
+tqdm.write('\nSTEP COUNTS:')
 for step_count in step_count_hist[1:]:
-    print(' '.join(f'{p}' for p in step_count)[::-1])
+    tqdm.write(' '.join(f'{p}' for p in step_count)[::-1])
 
 i = 2
 
-print(f'\nSTEP DISTS [{i}]:')
+tqdm.write(f'\nSTEP DISTS [{i}]:')
 for step_dists in step_dist_hist[1:]:
-    print(
+    tqdm.write(
         '  |||  '.join(' '.join(f'{p:3.0f}'[::-1] for p in step_dists[i])[::-1] for i in range(k))
     )
 
 
-print(f'\nEXPL DISTS [{i}]:')
+tqdm.write(f'\nEXPL DISTS [{i}]:')
 for expl_dists in expl_dist_hist[1:]:
-    print(
+    tqdm.write(
         '  |||  '.join(' '.join(f'{p:3.0f}'[::-1] for p in expl_dists[i])[::-1] for i in range(k))
     )
 
 
 # for prv, nxt, steps in zip(parent_hist[:-1], parent_hist[1:], step_dist_hist[:-1]):
 #     for p, n in zip(prv, nxt):
-#         print(p, end=' ')
-#     print()
-# print(np.array(parent_hist))
+#         tqdm.write(p, end=' ')
+#     tqdm.write()
+# tqdm.write(f'{np.array(parent_hist)}')
 
 

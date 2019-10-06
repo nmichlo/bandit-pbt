@@ -30,7 +30,7 @@ import torch
 # ========================================================================= #
 # .env                                                                     #
 # ========================================================================= #
-
+from tqdm import tqdm
 
 dotenv.load_dotenv(dotenv.find_dotenv(), verbose=True)
 
@@ -80,7 +80,7 @@ ENABLE_COMET_ML = bool(os.getenv('ENABLE_COMET_ML'))
 ENABLE_COMET_ML = ENABLE_COMET_ML and (os.getenv('COMET_API_KEY') and os.getenv('COMET_PROJECT_NAME') and os.getenv('COMET_WORKSPACE'))
 
 if not ENABLE_COMET_ML:
-    print('\033[91mWARNING: Comet.ml Experiment Tracking Disabled\033[0m')
+    tqdm.write('\033[91mWARNING: Comet.ml Experiment Tracking Disabled\033[0m')
 
 
 # ========================================================================= #

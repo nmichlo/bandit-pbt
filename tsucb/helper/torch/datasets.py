@@ -21,15 +21,15 @@
 
 import os as _os
 from cachier import cachier as _cachier, pickle_core as _cachier_pickle_core
+from tqdm import tqdm
 
 
 # ========================================================================= #
 # VARS                                                                      #
 # ========================================================================= #
 
-
 DATA_DIR = _os.path.expanduser(_os.getenv('DATA_DIR', '~/workspace/data'))
-print(f'DATA_DIR="{DATA_DIR}"')
+tqdm.write(f'DATA_DIR="{DATA_DIR}"')
 
 # Change cache directory
 _cachier_pickle_core.CACHIER_DIR = _os.path.join(DATA_DIR, 'cachier')
