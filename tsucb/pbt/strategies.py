@@ -23,6 +23,7 @@
 from collections import defaultdict
 from typing import Optional, List, NoReturn
 
+from tsucb.helper.util import sorted_random_ties
 from tsucb.pbt.pbt import Exploiter, IPopulation, IMember
 import random
 import numpy as np
@@ -54,6 +55,11 @@ class ISuggest(object):
     # SUGGEST
     def suggest(self, filtered: List['IMember']) -> IMember:
         raise NotImplementedError()
+
+    def __str__(self):
+        return self.__class__.__name__
+    def __repr__(self):
+        return str(self)
 
 class _SuggestRandomGreedy(ISuggest):
     def __init__(self, wrapped_suggest, epsilon=0.5):
@@ -179,10 +185,17 @@ class SuggestEpsilonUcb(_SuggestRandomGreedy):
 
 
 class IExploitStrategy(object):
+    def block(self, current: 'IMember', population: 'IPopulation') -> bool:
+        return False
     def accept(self, suggestion: 'IMember', current: 'IMember', population: 'IPopulation'):
-        raise NotImplementedError('Implement Me')
+        return True
     def filter(self, population: 'IPopulation') -> List['IMember']:
         return list(population)
+
+    def __str__(self):
+        return self.__class__.__name__
+    def __repr__(self):
+        return str(self)
 
 class ExploitStrategyBinaryTournament(IExploitStrategy):
     def accept(self, suggestion: 'IMember', current: 'IMember', population: 'IPopulation'):
@@ -202,22 +215,25 @@ class ExploitStrategyTruncationSelection(IExploitStrategy):
         assert 0 <= top_ratio <= 1
         self._bottom_ratio = bottom_ratio
         self._top_ratio = top_ratio
-    def _sorted(self, members):
-        # Sort, but break ties randomly
-        members = list(members)
-        random.shuffle(members)
-        return sorted(members, key=lambda m: m.score)
+        # assumes that block is always called before filter.
+        self._temp_sorted = None
+
     def filter(self, population: 'IPopulation') -> List['IMember']:
+        # Cached sorted population
+        members, self._temp_sorted = self._temp_sorted, None
         # Top % of the population
         idx_hgh = int(len(population) * (1 - self._top_ratio))
-        members = self._sorted(population)
         return members[idx_hgh:]
-    def accept(self, suggestion: 'IMember', current: 'IMember', population: 'IPopulation'):
+
+    def block(self, current: 'IMember', population: 'IPopulation'):
         # If the current agent is in the bottom % of the population
         idx_low = int(len(population) * self._bottom_ratio)
-        members = self._sorted(population)
-        return members.index(current) < idx_low
-
+        members = sorted_random_ties(population, key=lambda m: m.score)
+        is_blocked = members.index(current) >= idx_low
+        # cache sort result
+        self._temp_sorted = None if is_blocked else members
+        # return
+        return is_blocked
 
 # ========================================================================= #
 # GENERALISED EXPLOITER                                                     #
@@ -237,11 +253,16 @@ class GeneralisedExploiter(Exploiter):
         self._suggester.assign_listeners(self)
 
     def exploit(self, population: 'IPopulation', current: 'IMember') -> Optional['IMember']:
+        if self._strategy.block(current, population):
+            return None
         filtered = self._strategy.filter(population)
         suggestion = self._suggester.suggest(filtered)
         if self._strategy.accept(suggestion, current, population):
             return suggestion
         return None
+
+    def __str__(self):
+        return f'{super().__str__()}-{self._strategy}-{self._suggester}'
 
 
 # ========================================================================= #
@@ -287,8 +308,8 @@ class OrigExploitTruncationSelection(Exploiter):
         idx_hgh = int(len(population) * (1 - self._top_ratio))
 
         # we rank all agents in the population by episodic reward (low to high)
-        members = sorted(population, key=lambda m: m is not member)  # make sure the current member recieves the lowers priority if values are the same
-        members = sorted(members, key=lambda m: m.score)
+        # TODO BREAK TIES
+        members = sorted_random_ties(population, key=lambda m: m.score)
 
         #  If the current agent is in the bottom 20% of the population
         idx = members.index(member)

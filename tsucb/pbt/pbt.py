@@ -56,6 +56,10 @@ class IPopulation(abc.ABC):
         return self.members.__contains__(member)
 
     @property
+    def debug(self):
+        raise NotImplementedError()
+
+    @property
     @abc.abstractmethod
     def members(self) -> List['IMember']:
         """
@@ -132,10 +136,16 @@ class Population(IPopulation):
         self._exploiter = exploiter
         self._exploiter._set_used()
 
+        self._debug = options.get('debug', False)
+
     @property
     def members(self) -> List['IMember']:
         # returns a shallow copy
         return self._members[:]
+
+    @property
+    def debug(self):
+        return self._debug
 
     @property
     def options(self) -> dict:
@@ -183,12 +193,16 @@ class Population(IPopulation):
                     do_explore = explore
 
                     if exploit:
+                        if self.debug:
+                            print(f'[EXPLOITING]: {member.id}')
                         # replace the member using the rest of population to find a better solution
                         exploited = self._exploit(member)
                         # only explore if we exploited
                         do_explore = do_explore and exploited
 
                     if do_explore:
+                        if self.debug:
+                            tqdm.write(f'[EXPLORING]: {member.id}')
                         # produce new hyper-parameters h and update member
                         self._explore(member)
                         # new model evaluation
@@ -198,8 +212,8 @@ class Population(IPopulation):
                 # TODO: needed for async operations
                 # self._update(idx, member)
 
-            if self._options.get('debug', False):
-                print(f'[STEP COMPLETE]: max_score={max(m.score for m in self)} min_score={min(m.score for m in self)}')
+            if self.debug:
+                tqdm.write(f'[STEP COMPLETE]: max_score={max(m.score for m in self)} min_score={min(m.score for m in self)}')
 
         return self
 
@@ -208,7 +222,7 @@ class Population(IPopulation):
         self.exploiter._member_on_step(member)
 
     def _eval(self, member) -> NoReturn:
-        p = member.eval(options=self.options)
+        member.eval(options=self.options)
 
     def _is_ready(self, member) -> bool:
         return member.is_ready(self)
@@ -218,8 +232,8 @@ class Population(IPopulation):
         if exploited_member is not None:
             self.exploiter._member_on_used_for_exploit(exploited_member)
             self.exploiter._member_on_exploit_replaced(member)
-            if self._options.get('debug', False):
-                print(f'[EXPLOIT]: {member.id} ({member.score}) <- {exploited_member.id} ({exploited_member.score})')
+            if self.debug:
+                tqdm.write(f'[EXPLOIT]: {member.id} <- {exploited_member.id}')
             return True
         return False
 
@@ -236,7 +250,7 @@ class Population(IPopulation):
         liniage = [i for i in range(len(self))]
         curr_liniage = len(self)
 
-        print()
+        tqdm.write()
         for step in histories:
             assert all(h1.t == h2.t for h1, h2 in zip(step[:-1], step[1:]))
 
@@ -251,9 +265,9 @@ class Population(IPopulation):
                 string_a += f'{str(l):>3s}: {str(np.around(h.p, 2)):<5s} '
                 string_b += f'    {f"({h.exploit_id})":6s} ' if (h.exploit_id is not None) else ' '*11
 
-            print(f'{str(step[0].t):4s}| {string_a}')
-            print(f'    | {string_b}')
-        print()
+            tqdm.write(f'{str(step[0].t):4s}| {string_a}')
+            tqdm.write(f'    | {string_b}')
+        tqdm.write()
 
 
 # ========================================================================= #
@@ -412,7 +426,7 @@ class Member(IMember):
         self._t = 0
         self._t_last_explore = 0
         # should the score value be recalculated
-        self._recal = False
+        self._recal = False  # we want to use infinity for the first step.
         self._exploited = None
         self._results = None
         # other vars
@@ -445,16 +459,25 @@ class Member(IMember):
     def eval(self, options: dict):
         # only recalculate score score if necessary
         if self._recal:
+            old_score = self._p
             self._p = self._eval(options)
             self._recal = False
+            if options.get('debug', False):
+                tqdm.write(f'\n[RECALC]: {self.id}: {old_score} -> {self._p}')
         return self._p
 
     @property
     def score(self):
+        if self._t <= 0:
+            return float('-inf')
+        assert not self._recal, f'The member {self.id} has not been evaluated'
         return self._p
 
     def is_ready(self, population: 'IPopulation') -> bool:
-        return self._is_ready(population, self._t, self._t - self._t_last_explore)
+        ready = self._is_ready(population, self._t, self._t - self._t_last_explore)
+        if population.debug:
+            tqdm.write(f'[READY]: {self.id} {ready} {self.score}')
+        return ready
 
     def exploit(self, population: 'IPopulation') -> Optional['IMember']:
         member = population.exploiter.exploit(population, self)
@@ -463,14 +486,16 @@ class Member(IMember):
             return None
         # Skip exploit is the Same
         if member is self:
-            print(f"WARNING: Exploited member is itself. ({type(population.exploiter).__name__})")
+            if population._options.get('warn_exploit_self', False):
+                tqdm.write(f"[WARNING]: {self.id} Exploited itself - [{population.exploiter}]")
             return None
         # Copy parameters & hyperparameters
         self._load_theta(member.id)
+        self._save_theta(self.id)
         self._set_h(member.copy_h())
         self._recal = True
         # Append to history on next step
-        self._exploited = population.members.index(member)
+        self._exploited = member.id
         # Success
         return member
 
@@ -562,6 +587,12 @@ class IExploiter(abc.ABC):
         elif len(n) > 8 and n.lower().startswith('exploit'):
             n = n[7:]
         return n
+
+    def __str__(self):
+        return self.__class__.__name__
+
+    def __repr__(self):
+        return str(self)
 
 
 class Exploiter(IExploiter):

@@ -18,13 +18,13 @@
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
 
-
 import numpy as np
 import os
 from copy import deepcopy
-
 from typing import Tuple, NoReturn
+from tsucb.helper.torch.models import StepTrainer
 from tsucb.helper.torch.trainable import TorchTrainable
+from tsucb.helper.util import make_empty_dir
 from tsucb.pbt.pbt import Member, Population, IExploiter, Exploiter
 from tsucb.pbt.strategies import GeneralisedExploiter, SuggestUniformRandom, ExploitStrategyTruncationSelection
 
@@ -92,12 +92,11 @@ MUTATIONS = {
 # ========================================================================= #
 
 
-CHECKPOINT_DIR = './checkpoints'
+CHECKPOINT_DIR = make_empty_dir('./checkpoints')
 CHECKPOINT_MAP = {}
 
 
 class MemberTorch(Member):
-
     def __init__(self, config):
         super().__init__()
         self._trainable = TorchTrainable(deepcopy(config))
@@ -114,6 +113,7 @@ class MemberTorch(Member):
 
     def _set_h(self, h) -> NoReturn:
         self._trainable = TorchTrainable(config=h)
+        self._trainable.restore(CHECKPOINT_MAP[self.id])
 
     def _explored_h(self, population: 'Population') -> dict:
         config = self._trainable.get_config()
@@ -128,13 +128,12 @@ class MemberTorch(Member):
         return config
 
     def _step(self, options: dict) -> NoReturn:
-        # TODO this needs to be every N steps, NOT EVERY EPOCH...
         self._trainable.train()
         return None
 
     def _eval(self, options: dict) -> float:
         results = self._trainable.eval()
-        return results['correct']
+        return results['correct'] * 100
 
 
 # ========================================================================= #
@@ -144,47 +143,54 @@ class MemberTorch(Member):
 
 def main():
 
-    member_options = dict(
-        model='example',
-        dataset='FashionMNIST',
-        loss='MSELoss',
-        optimizer='SGD',
+    def make_member_options():
+        return dict(
+            model='example',
+            dataset='MNIST',
+            loss='NLLLoss',
+            optimizer='SGD',
 
-        model_options={},
-        dataset_options={},
-        loss_options={},
-        optimizer_options=dict(
-            lr=random_log_uniform(0.0001, 0.1),
-            momentum=random_uniform(0.01, 0.99),
-        ),
+            model_options={},
+            dataset_options={},
+            loss_options={},
+            optimizer_options=dict(
+                lr=random_log_uniform(0.0001, 0.1),
+                momentum=random_uniform(0.01, 0.99),
+            ),
 
-        mutations={
-            'optimizer_options/lr':       ('perturb', 0.8, 1.25, 0.0001, 0.1),  # 0.8 < 1/1.2  shifts exploration towards getting smaller
-            'optimizer_options/momentum': ('perturb', 0.8, 1.25, 0.01, 0.99),   # 0.8 = 1/1.25 is balanced
-        },
+            mutations={
+                'optimizer_options/lr':       ('perturb', 0.8, 1.25, 0.0001, 0.1),  # 0.8 < 1/1.2  shifts exploration towards getting smaller
+                'optimizer_options/momentum': ('perturb', 0.8, 1.25, 0.01, 0.99),   # 0.8 = 1/1.25 is balanced
+            },
 
-        # TODO: move into separate dict
-        train_log_interval=-1,
-        train_subset=1000,
-        batch_size=16,
-        use_gpu=True,
+            # TODO: move into separate dict
+            train_log_interval=-1,
+            train_imgs_per_step=12000,  # = ((60000/32/5) == 375) * 32
+
+            batch_size=32,
+            use_gpu=True,
+        )
+
+    population_options = dict(
+        steps_till_ready=1,
+        steps=20,
+        debug=False,
+        warn_exploit_self=False,
     )
 
-    population = Population(
-        members=[MemberTorch(member_options) for _ in range(1)],
-        exploiter=GeneralisedExploiter(
+    def make_exploiter():
+        return GeneralisedExploiter(
             strategy=ExploitStrategyTruncationSelection(),
             suggester=SuggestUniformRandom()
-        ),
-        options=dict(
-            steps_till_ready=1,
-            steps=20,
-            debug=True,
         )
+
+    population = Population(
+        members=[MemberTorch(make_member_options()) for _ in range(5)],
+        exploiter=make_exploiter(),
+        options=population_options
     )
 
     population.train(show_sub_progress=True)
-
 
 if __name__ == '__main__':
     main()

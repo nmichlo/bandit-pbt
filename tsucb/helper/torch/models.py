@@ -31,40 +31,61 @@ from tsucb.helper import util
 # HELPER                                                                    #
 # ========================================================================= #
 
+@util.min_time_elapsed(1)
+def _log_train_step(batch_i, loader, loss):
+    pass
+    # print(f'[{batch_i*loader.batch_size}/{len(loader.dataset)} {100.*batch_i/len(loader):.1f}%] Loss: {loss.item():.6f}')
 
-def train(model, device, train_loader, optimizer, log_time_interval=1):
-    """
-    FROM: https://github.com/pytorch/examples/blob/master/mnist/main.py
-    """
-    if log_time_interval > 0:
-        @util.min_time_elapsed(log_time_interval)
-        def _log(batch_i, loader, loss):
-            print(f'[{batch_i*loader.batch_size}/{len(loader.dataset)} {100.*batch_i/len(loader):.1f}%] Loss: {loss.item():.6f}')
+def _train_step(model, device, optimizer, criterion, data, target):
+    data, target = data.to(device), target.to(device)
+    optimizer.zero_grad()
+    output = model(data)
+    loss = criterion.forward(output, target)
+    loss.backward()
+    optimizer.step()
+    return loss
 
+class StepTrainer(object):
+    def __init__(self):
+        self._batch_iter = None
+
+    def train(self, model, device, train_loader, optimizer, criterion, num_images=None):
+        if num_images is None:
+            num_images = len(train_loader.dataset)
+
+        assert num_images > 0
+        assert num_images >= train_loader.batch_size
+
+        model.train()
+        for i in range(0, num_images, train_loader.batch_size):
+            try:
+                batch_i, (data, target) = next(self._batch_iter)
+            except:
+                self._batch_iter = enumerate(train_loader)
+                batch_i, (data, target) = next(self._batch_iter)
+            # TRAINING STEP
+            loss = _train_step(model, device, optimizer, criterion, data, target)
+            # LOG:
+            _log_train_step(batch_i, train_loader, loss)
+
+def train(model, device, train_loader, optimizer, criterion):
+    # FROM: https://github.com/pytorch/examples/blob/master/mnist/main.py
     model.train()
     for batch_i, (data, target) in enumerate(train_loader):
-        data, target = data.to(device), target.to(device)
-        optimizer.zero_grad()
-        output = model(data)
-        loss = F.nll_loss(output, target)
-        loss.backward()
-        optimizer.step()
-        # log
-        if log_time_interval > 0:
-            _log(batch_i, train_loader, loss)
+        # TRAINING STEP
+        loss = _train_step(model, device, optimizer, criterion, data, target)
+        # LOG:
+        _log_train_step(batch_i, train_loader, loss)
 
-
-def test(model, device, test_loader):
-    """
-    FROM: https://github.com/pytorch/examples/blob/master/mnist/main.py
-    """
+def test(model, device, test_loader, criterion):
+    # FROM: https://github.com/pytorch/examples/blob/master/mnist/main.py
     model.eval()
     correct, test_loss = 0, 0
     with torch.no_grad():
         for data, target in test_loader:
             data, target = data.to(device), target.to(device)
             output = model(data)
-            test_loss += F.nll_loss(output, target, reduction='sum').item()  # sum up batch loss
+            test_loss += criterion.forward(output, target).item() * len(data)  # sum up batch loss
             pred = output.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
             correct += pred.eq(target.view_as(pred)).sum().item()
     test_loss /= len(test_loader.dataset)
@@ -139,5 +160,4 @@ def create_torchvision_model(arch, num_classes, **kwargs):
 # ========================================================================= #
 # END                                                                       #
 # ========================================================================= #
-
 

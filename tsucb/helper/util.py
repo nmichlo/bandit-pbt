@@ -73,6 +73,21 @@ def shuffled(x, enabled=True):
         random.shuffle(items)
     return items
 
+
+def sorted_random_ties(a, key=None):
+    import random
+    return sorted(a, key=lambda x: (key(x), random.random()))
+
+
+def make_empty_dir(path):
+    import os
+    # make sure the folder is empty and exists
+    os.makedirs(path, exist_ok=True)
+    for file in os.listdir(path):
+        os.remove(os.path.join(path, file))
+    return path
+
+
 # ========================================================================= #
 # MODULES                                                                   #
 # ========================================================================= #
@@ -184,6 +199,7 @@ def load_dotenv():
     string = '\n'.join(f'{k}: {v}' for k, v in values.items())
     print_separator(f'[LOADED ENVIRONMENT]: {env_path}\n[HIDDEN KEYS]: {", ".join(set(values_all)-set(values))}\n\n{string}')
     return values
+
 
 
 # ========================================================================= #

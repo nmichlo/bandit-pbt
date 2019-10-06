@@ -41,19 +41,21 @@ from copy import deepcopy
 
 def _create_loss(name, **kwargs) -> torch.nn.modules.loss._Loss:
     losses = util.get_module_classes(torch.nn.modules.loss, filter_nonlocal=True)
+    losses = {k: v for k, v in losses.items() if not k.startswith('_')}
     if name in losses:
         return losses[name](**kwargs)
     else:
-        raise KeyError(f'Unsupported loss function: "{name}" Choose one of: {list(losses.keys())}')
+        raise KeyError(f'Unsupported loss function: "{name}" Choose one of: [{", ".join(losses.keys())}]')
 
 def _create_optimizer(name, model_params, **kwargs) -> torch.optim.Optimizer:
     optimizers = util.get_module_classes(torch.optim)
+    optimizers = {k: v for k, v in optimizers.items() if not k.startswith('_')}
     if name in optimizers:
         if name == 'SGD':  # doesn't have a default for some reason
             kwargs.setdefault('lr',  1e-4)
         return optimizers[name](model_params, **kwargs)
     else:
-        raise KeyError(f'Unsupported optimizer: "{name}" Choose one of: {list(optimizers.keys())}')
+        raise KeyError(f'Unsupported optimizer: "{name}" Choose one of: [{", ".join(optimizers.keys())}]')
 
 def _create_dataset(name, **kwargs) -> Tuple[torchvision.datasets.VisionDataset, torchvision.datasets.VisionDataset]:
     allowed = { # datasets with the same options. # 'PhotoTour', 'USPS',
@@ -65,7 +67,7 @@ def _create_dataset(name, **kwargs) -> Tuple[torchvision.datasets.VisionDataset,
         assert not kwargs, 'dataset arguments not allowed'
         return helper.torch.datasets.get_datasets(name)
     else:
-        raise KeyError(f'Unsupported dataset: "{name}" Choose one of: {list(allowed)}')
+        raise KeyError(f'Unsupported dataset: "{name}" Choose one of: [{", ".join(allowed)}]')
 
 def _create_model(arch, dataset_name, **kwargs) -> torch.nn.Module:
     if arch == 'example':
@@ -75,7 +77,7 @@ def _create_model(arch, dataset_name, **kwargs) -> torch.nn.Module:
         else:
             raise KeyError(f'Model: {arch} does not support dataset: {dataset_name}')
     else:
-        raise KeyError(f'Unsupported model: "{arch}" Choose one of: {["example"]}')
+        raise KeyError(f'Unsupported model: "{arch}" Choose one of: [{", ".join(["example"])}]')
 
 
 # ========================================================================= #
@@ -125,50 +127,57 @@ class TorchTrainable(object):
 
         # VARS
         self._model: torch.nn.Module = model_creator(config).to(self._device)
-        self._loss, self._optimizer = optimizer_creator(self._model, config)
+        self._criterion, self._optimizer = optimizer_creator(self._model, config)
         trainset, testset = data_creator(config)
 
+        # TRAIN DATASET
         self._train_loader = torch.utils.data.DataLoader(
             trainset,
             batch_size=config['batch_size'],
-            shuffle=config.get('shuffle', True),
-            num_workers=config.get('num_workers', 2 if use_cuda else 0),
-            pin_memory=config.get('pin_memory', use_cuda),
+            shuffle=config.get('train_shuffle', True),  # TODO fix True, this may effect training after exploitation
+            # num_workers=config.get('num_workers', 2 if use_cuda else 0),  # TODO: fix 2 when use_cuda
+            # pin_memory=config.get('pin_memory', use_cuda), # TODO: fix True when use_cuda
             # **({'sampler': SubsetRandomSampler(indices=np.random.choice(a=np.arange(0, len(trainset)), size=config['train_subset'], replace=False))} if config.get('train_subset', False) else {})
         )
 
+        # TEST DATASET
         self._test_loader = torch.utils.data.DataLoader(
             testset,
             batch_size=config['batch_size'],
             shuffle=False,
-            num_workers=config.get('num_workers', 2 if use_cuda else 0),
-            pin_memory=config.get('pin_memory', use_cuda)
+            # num_workers=config.get('num_workers', 2 if use_cuda else 0),  # TODO: fix 2 when use_cuda
+            # pin_memory=config.get('pin_memory', use_cuda),  # TODO: fix True when use_cuda
         )
+
+        # TRAINER
+        self._trainer = helper.torch.models.StepTrainer()
 
     def get_config(self) -> dict:
         return deepcopy(self._config)
 
     def eval(self) -> dict:
-        correct, loss = helper.torch.models.test(self._model, self._device, self._test_loader)
+        correct, loss = helper.torch.models.test(self._model, self._device, self._test_loader, self._criterion)
         return dict(
             correct=correct,
             loss=loss
         )
 
     def train(self) -> NoReturn:
-        helper.torch.models.train(self._model, self._device, self._train_loader, self._optimizer, log_time_interval=self._config.get('train_log_interval', -1))
+        # helper.torch.models.train(self._model, self._device, self._train_loader, self._optimizer) #, log_time_interval=self._config.get('train_log_interval', -1))
+        self._trainer.train(self._model, self._device, self._train_loader, self._optimizer, self._criterion, num_images=self._config.get('train_imgs_per_step', None))
+
 
     def save(self, path) -> NoReturn:
         state = dict(
             model=self._model.state_dict(),
-            optimizer=self._optimizer.state_dict(),
+            # optimizer=self._optimizer.state_dict(),
         )
         torch.save(state, path)
 
     def restore(self, path) -> NoReturn:
         state = torch.load(path)
         self._model.load_state_dict(state['model'])
-        self._optimizer.load_state_dict(state['optimizer'])
+        # self._optimizer.load_state_dict(state['optimizer'])
 
 
 # ========================================================================= #

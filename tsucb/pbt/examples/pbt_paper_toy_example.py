@@ -123,11 +123,13 @@ def make_plot(ax_col, options, exploiter, steps=200, exploit=True, explore=True,
 def run_dual_test():
 
     options = {
-        "repeats": 1000,
+        "repeats": 100,
         "steps": 20,
         "steps_till_ready": 2,
         "exploration_scale": 0.1,
-        "population_size": 50
+        "population_size": 50,
+
+        "warn_exploit_self": True,
     }
 
     make_exploit_strategy = lambda: ExploitStrategyTruncationSelection()
@@ -135,20 +137,20 @@ def run_dual_test():
     # EXPLOITERS
     exploiters = [
         # orig
-        # ('orig-ts', lambda: OrigExploitTruncationSelection()),
+        ('orig-ts', lambda: OrigExploitTruncationSelection()),
         # ('orig-ts-eg', lambda: OrigExploitEGreedy(epsilon=0.5, subset_mode='top')),
         # ('orig-ts-ucb', lambda: OrigExploitUcb(c=1.0, subset_mode='top', normalise_mode='subset', incr_mode='exploited')),
         # ('orig-ts-sm', lambda: OrigExploitSoftmax(temperature=1.0, subset_mode='top')),
         # ('orig-ts-esm', lambda: OrigExploitESoftmax(epsilon=0.5, temperature=1.0, subset_mode='top')),
         # new
         ('ts',         lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUniformRandom())),
-        ('ts-egr',     lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonGreedy(epsilon=0.5))),
-        ('ts-sm',      lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestSoftmax(temperature=1.0))),
-        ('ts-esm',     lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonSoftmax(epsilon=0.5, temperature=1.0))),
-        ('ts-ucb-0.1',     lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=0.1))),
-        ('ts-ucb-0.5',     lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=0.5))),
-        ('ts-ucb-1.0',     lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=1.0))),
-        ('ts-ucb-2.0',     lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=2.0))),
+        # ('ts-egr',     lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonGreedy(epsilon=0.5))),
+        # ('ts-sm',      lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestSoftmax(temperature=1.0))),
+        # ('ts-esm',     lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonSoftmax(epsilon=0.5, temperature=1.0))),
+        # ('ts-ucb-0.1',     lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=0.1))),
+        # ('ts-ucb-0.5',     lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=0.5))),
+        # ('ts-ucb-1.0',     lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=1.0))),
+        # ('ts-ucb-2.0',     lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=2.0))),
         # ('ts-eucb',    lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonUcb(epsilon=0.5, c=1.0))),
     ]
     k = len(exploiters)
@@ -179,7 +181,6 @@ def run_dual_test():
             assert all(a == b for a, b in zip(r_pop_sizes[:-1], r_pop_sizes[1:]))
 
             print_results(i, options['repeats'])
-
 
 
     scores, converge_times, scores_per_steps = np.array(scores), np.array(converge_times), np.array(scores_per_steps)
