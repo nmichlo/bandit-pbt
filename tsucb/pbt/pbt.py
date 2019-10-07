@@ -84,7 +84,7 @@ class IPopulation(abc.ABC):
 
     @property
     def scores_history(self):
-        return np.array([[h.p for h in m] for m in self.members])
+        return np.array([[h.p for h in m.history] for m in self.members])
 
     @property
     @abc.abstractmethod

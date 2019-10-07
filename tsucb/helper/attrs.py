@@ -151,7 +151,7 @@ class Attrs(object, metaclass=_AttrMeta):
     @classmethod
     def from_system_args(cls):
         args = cls.get_parser().parse_args()
-        return cls.from_dict(**vars(args))
+        return cls.from_dict(vars(args))
 
     def __str__(self):
         return self.__repr__()

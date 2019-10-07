@@ -43,6 +43,12 @@ def val_range(a, b, number_type=float):
         return x
     return inner
 
+def flt_rng(a, b):
+    return val_range(a, b, float)
+
+def int_rng(a, b):
+    return val_range(a, b, int)
+
 # HELPER
 def make_usage_tracker(obj):
     used = set()
@@ -87,36 +93,36 @@ EXPERIMENT_CHOICES = [
 class ExperimentArgs(Attrs):
 
     # EXPERIMENT
-    experiment_repeats:       int             = field(default=1,           cast=val_range(1, INF))                     # used
+    experiment_repeats:       int             = field(default=1,           cast=int_rng(1, INF))                     # used
     experiment_name:          str             = field(default=uuid4())                                                 # TODO
     experiment_type:          str             = field(default='toy',       cast=str.lower, choices=EXPERIMENT_CHOICES) # used
     experiment_seed:          int             = field(default=42)                                                      # used
     # CNN
     cnn_dataset:              str             = field(default='MNIST',     choices=DATASET_CHOICES)                    # used
-    cnn_batch_size:           int             = field(default=32,          cast=val_range(1, 1024))                    # used
+    cnn_batch_size:           int             = field(default=32,          cast=int_rng(1, 1024))                    # used
     cnn_use_cpu:              bool            = field(default=False)                                                   # used
-    cnn_step_divs:            int             = field(default=1,           cast=val_range(1, 1000))                    # used
+    cnn_step_divs:            int             = field(default=1,           cast=int_rng(1, 1000))                    # used
     # PBT
     pbt_print:                bool            = field(default=False)                                                   # used
-    pbt_target_steps:         int             = field(default=10,          cast=val_range(1, INF))                     # used
+    pbt_target_steps:         int             = field(default=10,          cast=int_rng(1, INF))                     # used
     pbt_target_score:         Optional[float] = field(default=None)                                                    # used
-    pbt_members:              int             = field(default=25,          cast=val_range(1, INF))                     # used
-    pbt_members_ready_after:  int             = field(default=2,           cast=val_range(1, INF))                     # used
+    pbt_members:              int             = field(default=25,          cast=int_rng(1, INF))                     # used
+    pbt_members_ready_after:  int             = field(default=2,           cast=int_rng(1, INF))                     # used
     pbt_exploit_strategy:     str             = field(default='ts',        cast=str.lower, choices=STRATEGY_CHOICES)   # used
     pbt_exploit_suggest:      str             = field(default='random',    cast=str.lower, choices=SUGGEST_CHOICES)    # used
     pbt_disable_exploit:      bool            = field(default=False)                                                   # used
     pbt_disable_explore:      bool            = field(default=False)                                                   # used
     # EXPLOITER - UCB
     suggest_ucb_incr_mode:    str             = field(default='exploited', cast=str.lower, choices=INCR_MODES)         # used
-    suggest_ucb_c:            float           = field(default=1.00,        cast=val_range(0.0, 2.0))                   # used
-    suggest_softmax_temp:     float           = field(default=1.00,        cast=val_range(0.0, INF))                   # used
-    suggest_eps:              float           = field(default=0.75,        cast=val_range(0.0, 1.0))                   # used
+    suggest_ucb_c:            float           = field(default=1.00,        cast=flt_rng(0.0, 2.0))                   # used
+    suggest_softmax_temp:     float           = field(default=1.00,        cast=flt_rng(0.0, INF))                   # used
+    suggest_eps:              float           = field(default=0.75,        cast=flt_rng(0.0, 1.0))                   # used
     # EXPLOITER - UCB & TS
-    strategy_ts_ratio_top:    float           = field(default=0.20,        cast=val_range(0.0, 1.0))                   # used
-    strategy_ts_ratio_bottom: float           = field(default=0.20,        cast=val_range(0.0, 1.0))                   # used
-    strategy_tt_confidence:   float           = field(default=0.95,        cast=val_range(0.0, 1.0))                   # used
+    strategy_ts_ratio_top:    float           = field(default=0.20,        cast=flt_rng(0.0, 1.0))                   # used
+    strategy_ts_ratio_bottom: float           = field(default=0.20,        cast=flt_rng(0.0, 1.0))                   # used
+    strategy_tt_confidence:   float           = field(default=0.95,        cast=flt_rng(0.0, 1.0))                   # used
     # TRACKER
-    tracker_converge_score:   Optional[float] = field(default=None)                                                    # used
+    tracker_converge_score:   float           = field(default=None)                                                    # used
     # EXTRA
     debug:                    bool            = field(default=False)                                                   # used
     # COMET
@@ -250,7 +256,7 @@ class ExperimentArgs(Attrs):
             population = self.do_training_run(seed=seed)
 
             if callable(cb_post_train):
-                cb_post_train(self, population)
+                cb_post_train(self, i, population)
 
         if callable(cb_post_exp):
             cb_post_exp(self)

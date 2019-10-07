@@ -84,7 +84,7 @@ class ExperimentTracker(object):
     def pre_train(self, exp: ExperimentArgs, i: int):
         self.COMET.set_step(i)
 
-    def post_train(self, exp: ExperimentArgs, population: Population):
+    def post_train(self, exp: ExperimentArgs, i: int, population: Population):
         # Calculates the score as the index of the first occurrence greater than 1.18
         _firsts = np.argmax(population.scores_history > 1.18, axis=1)
         _firsts[_firsts == 0] = exp.tracker_converge_score
@@ -95,7 +95,7 @@ class ExperimentTracker(object):
         # AVERAGE SCORES
         self.scores.append(score)
         self.converge_times.append(converge_time)
-        self.avg_scores_per_step += population.scores_history.max(axis=0) * (1 / args.experiment_repeats)
+        self.avg_scores_per_step += population.scores_history.max(axis=0) * (1.0 / exp.experiment_repeats)
 
         # LOG STEP
         self.log_step(i, score, converge_time)
