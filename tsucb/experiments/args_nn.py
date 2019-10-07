@@ -17,9 +17,11 @@
 #  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
-import argparse
-from uuid import uuid4
 
+
+import argparse
+import os
+from uuid import uuid4
 from tsucb.helper import util
 from tsucb.helper.attrs import field, Attrs
 from tsucb.pbt.pbt import IExploiter, Population
@@ -28,6 +30,8 @@ from tsucb.pbt.strategies import *
 # ========================================================================= #
 # HELPER                                                                    #
 # ========================================================================= #
+
+_NONE = object()
 
 # VALIDATORS
 def val_range(a, b, number_type=float):
@@ -86,22 +90,22 @@ class ExperimentArgs(Attrs):
     experiment_repeats:       int             = field(default=1,           cast=val_range(1, INF))                     # used
     experiment_name:          str             = field(default=uuid4())                                                 # TODO
     experiment_type:          str             = field(default='toy',       cast=str.lower, choices=EXPERIMENT_CHOICES) # used
-    experiment_seed:          Optional[int]   = field(default=None)                                                    # used
+    experiment_seed:          int             = field(default=42)                                                      # used
     # CNN
     cnn_dataset:              str             = field(default='MNIST',     choices=DATASET_CHOICES)                    # used
     cnn_batch_size:           int             = field(default=32,          cast=val_range(1, 1024))                    # used
-    cnn_use_cpu:              bool            = field(default=False)                                                    # used
+    cnn_use_cpu:              bool            = field(default=False)                                                   # used
     cnn_step_divs:            int             = field(default=1,           cast=val_range(1, 1000))                    # used
     # PBT
-    pbt_print:                bool            = field(default=False)                                                    # used
+    pbt_print:                bool            = field(default=False)                                                   # used
     pbt_target_steps:         int             = field(default=10,          cast=val_range(1, INF))                     # used
     pbt_target_score:         Optional[float] = field(default=None)                                                    # used
     pbt_members:              int             = field(default=25,          cast=val_range(1, INF))                     # used
     pbt_members_ready_after:  int             = field(default=2,           cast=val_range(1, INF))                     # used
     pbt_exploit_strategy:     str             = field(default='ts',        cast=str.lower, choices=STRATEGY_CHOICES)   # used
     pbt_exploit_suggest:      str             = field(default='random',    cast=str.lower, choices=SUGGEST_CHOICES)    # used
-    pbt_disable_exploit:      bool            = field(default=False)                                                    # used
-    pbt_disable_explore:      bool            = field(default=False)                                                    # used
+    pbt_disable_exploit:      bool            = field(default=False)                                                   # used
+    pbt_disable_explore:      bool            = field(default=False)                                                   # used
     # EXPLOITER - UCB
     suggest_ucb_incr_mode:    str             = field(default='exploited', cast=str.lower, choices=INCR_MODES)         # used
     suggest_ucb_c:            float           = field(default=1.00,        cast=val_range(0.0, 2.0))                   # used
@@ -111,6 +115,8 @@ class ExperimentArgs(Attrs):
     strategy_ts_ratio_top:    float           = field(default=0.20,        cast=val_range(0.0, 1.0))                   # used
     strategy_ts_ratio_bottom: float           = field(default=0.20,        cast=val_range(0.0, 1.0))                   # used
     strategy_tt_confidence:   float           = field(default=0.95,        cast=val_range(0.0, 1.0))                   # used
+    # TRACKER
+    tracker_converge_score:   Optional[float] = field(default=None)                                                    # used
     # EXTRA
     debug:                    bool            = field(default=False)                                                   # used
     enable_comet:             bool            = field(default=False)                                                   # TODO
@@ -125,14 +131,14 @@ class ExperimentArgs(Attrs):
     # INSTANCE #
     # -------- #
 
-    def to_dict(self, useful_only=False):
+    def to_dict(self, used_only=False):
         # temp
         self.make_suggest()
         self.make_strategy()
         self.make_member()
         # get dict
         opts = self.as_dict()
-        if useful_only:
+        if used_only:
             opts = {k: v for k, v in opts.items() if k not in {'debug', 'enable_comet'}}
             opts = {k: v for k, v in opts.items() if not k.startswith('suggest_') or k in self._used_suggest_fields}
             opts = {k: v for k, v in opts.items() if not k.startswith('strategy_') or k in self._used_strategy_fields}
@@ -217,9 +223,10 @@ class ExperimentArgs(Attrs):
             )
         )
 
-    def do_training_run(self, seed=None):
-        util.seed(self.experiment_seed if (seed is None) else seed)
+    def do_training_run(self, seed=_NONE):
+        util.seed(self.experiment_seed if (seed is _NONE) else seed)
         population = self.make_population()
+        # TRAIN
         population.train(
             n=self.pbt_target_steps,
             exploit=not self.pbt_disable_exploit,
@@ -227,14 +234,24 @@ class ExperimentArgs(Attrs):
         )
         return population
 
-    def do_experiment(self, seed=None):
-        seed = self.experiment_seed if (seed is None) else seed
-        for i in tqdm(range(self.experiment_repeats), 'repeat'):
-            population = self.do_training_run(None if (seed is None) else seed+i)
+    def do_experiment(self, cb_pre_exp=None, cb_pre_train=None, cb_post_train=None, cb_post_exp=None):
+        if callable(cb_pre_exp):
+            cb_pre_exp(self)
 
+        # EXPERIMENT
+        for i in tqdm(range(self.experiment_repeats), 'repeat', disable=os.environ.get("DISABLE_TQDM", False)):
+            seed = self.experiment_seed + i
+            if callable(cb_pre_train):
+                cb_pre_train(self, i)
 
-print(ExperimentArgs().to_dict())
-print(ExperimentArgs().to_dict(useful_only=True))
+            # TRAIN
+            population = self.do_training_run(seed=seed)
+
+            if callable(cb_post_train):
+                cb_post_train(self, population)
+
+        if callable(cb_post_exp):
+            cb_post_exp(self)
 
 
 # ========================================================================= #

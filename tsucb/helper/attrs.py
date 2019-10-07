@@ -38,11 +38,13 @@ _NONE = object()
 class field(object):
     def __init__(self, default, cast=None, choices=None):
         self._default = default
-        self._cast = ([cast] if callable(cast) else cast) if (cast is not None) else None # same as argparse.type
+        assert cast is None or callable(cast), 'cast must be callable'
+        self._cast = cast
         self._choices = set(choices) if (choices is not None) else None
         # Set Externally In _AttrMeta
         self._type: type = _NONE
         self._name: str = _NONE
+        # TODO: assert no choices, and no casts when type is bool
 
     def get(self, value=_NONE):
         assert (self._type is not _NONE) and (self._name is not _NONE), 'This field is not part of an Attr class.'
@@ -57,8 +59,7 @@ class field(object):
         check_type(self._name, value, self._type)
         # CAST
         if self._cast:
-            for cast in self._cast:
-                value = cast(value)
+            value = self._cast(value)
         # CHOICE
         if self._choices:
             assert value in self._choices, f'{self._name}: Value is not one of the allowed choices: {self._choices}'
@@ -123,25 +124,34 @@ class Attrs(object, metaclass=_AttrMeta):
         return tuple(getattr(self, k) for k in self._fields_public_)
 
     @classmethod
+    def from_dict(cls, kwargs):
+        return cls(**kwargs)
+
+    @classmethod
     def get_parser(cls):
         parser = argparse.ArgumentParser()
         for k, f in cls._fields_public_.items():
             flag = f'--{k.replace("_", "-")}'
-            parser.add_argument(
-                flag,
-                type=f._type,
-                choices=f._choice,
-                default=f._default,
-                **(dict(
-                    action='store_false' if f._default else 'store_true'  # store the opposite when specified
-                ) if f._type is bool else {})
-            )
+
+            if f._type is bool:
+                parser.add_argument(
+                    flag,
+                    default=f._default,
+                    action=('store_false' if f._default else 'store_true')
+                )
+            else:
+                parser.add_argument(
+                    flag,
+                    type=f._cast if f._cast else (f._type if f._type is not _NONE else None),
+                    default=f._default,
+                    choices=f._choices,
+                )
         return parser
 
     @classmethod
     def from_system_args(cls):
         args = cls.get_parser().parse_args()
-        return cls(**vars(args))
+        return cls.from_dict(**vars(args))
 
     def __str__(self):
         return self.__repr__()
