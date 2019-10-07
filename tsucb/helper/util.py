@@ -25,6 +25,8 @@
 # ========================================================================= #
 
 def seed(seed=42):
+    if seed is None:
+        return
     # https://pytorch.org/docs/stable/notes/randomness.html
     import random
     import numpy as np

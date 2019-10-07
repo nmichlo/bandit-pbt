@@ -29,7 +29,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
-from tsucb.experiments.args_toy import UcbExperimentArgs
+from tsucb.experiments.args_nn import ExperimentArgs
 from tsucb.helper.util import print_separator
 from tsucb.helper import util
 from tsucb.pbt.examples.pbt_paper_toy_example import ToyMember, ToyHyperParams
@@ -41,7 +41,7 @@ from tsucb.pbt.pbt import Population
 # ========================================================================== #
 
 
-def run_experiment(args: UcbExperimentArgs):
+def run_experiment(args: ExperimentArgs):
     EXP = comet_ml.Experiment(
         disabled=args.disable_comet,
         display_summary=True,
@@ -119,6 +119,6 @@ def run_experiment(args: UcbExperimentArgs):
 
 
 if __name__ == '__main__':
-    args = UcbExperimentArgs.from_system()
+    args = ExperimentArgs.from_system()
     run_experiment(args)
 
