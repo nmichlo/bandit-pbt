@@ -24,7 +24,7 @@ from copy import deepcopy
 from typing import Tuple, NoReturn
 from tsucb.helper.torch.models import StepTrainer
 from tsucb.helper.torch.trainable import TorchTrainable
-from tsucb.helper.util import make_empty_dir, print_separator
+from tsucb.helper import util
 from tsucb.pbt.pbt import Member, Population, IExploiter, Exploiter
 from tsucb.pbt.strategies import *
 
@@ -57,6 +57,9 @@ def perturb(value, low, high, min, max):
     val = np.clip(val, min, max)
     return val
 
+def uniform(value, low, high):
+    return random_uniform(low, high)
+
 def uniform_perturb(value, low, high, min, max):
     val = random_uniform(low*value, high*value)
     val = np.clip(val, min, max)
@@ -65,7 +68,7 @@ def uniform_perturb(value, low, high, min, max):
 def uniform_log_perturb(value, low, high, min, max):
     val = random_uniform(low * value, high * value)
     val = np.clip(val, min, max)
-    return
+    return val
 
 def select(value, values):
     return np.random.choice(values)
@@ -84,6 +87,7 @@ MUTATIONS = {
     'uniform_perturb': uniform_perturb,
     'select': select,
     'select_near': select_near,
+    'uniform': uniform,
 }
 
 
@@ -92,7 +96,7 @@ MUTATIONS = {
 # ========================================================================= #
 
 
-CHECKPOINT_DIR = make_empty_dir('./checkpoints')
+CHECKPOINT_DIR = util.make_empty_dir('./checkpoints')
 CHECKPOINT_MAP = {}
 
 
@@ -160,7 +164,7 @@ def main():
     batch_size = 32
     epoch_divisions = 5
     total_images = 60000
-    epochs = 5
+    epochs = 2
 
     assert total_images % epoch_divisions == 0
     assert (total_images // epoch_divisions) % batch_size == 0
@@ -181,8 +185,8 @@ def main():
             ),
 
             mutations={
-                'optimizer_options/lr':       ('perturb', 0.8, 1.25, 0.0001, 0.1),  # 0.8 < 1/1.2  shifts exploration towards getting smaller
-                'optimizer_options/momentum': ('perturb', 0.8, 1.25, 0.01, 0.99),   # 0.8 = 1/1.25 is balanced
+                'optimizer_options/lr':       ('uniform_perturb', 0.5, 2, 0.0001, 0.1),  # 0.8 < 1/1.2  shifts exploration towards getting smaller
+                'optimizer_options/momentum': ('uniform', 0.01, 0.99),   # 0.8 = 1/1.25 is balanced
             },
 
             # TODO: move into separate dict
@@ -194,9 +198,9 @@ def main():
         )
 
     population_options = dict(
-        members=20,
+        members=30,
         steps_till_ready=1,
-        steps=epochs*epoch_divisions,  # 5 epochs * steps per epoch
+        steps=int(epochs*epoch_divisions),  # 5 epochs * steps per epoch
         debug=False,
         warn_exploit_self=True,
         print_scores=True,
@@ -227,9 +231,12 @@ def main():
     tqdm.write(f'EPOCH_DIVISIONS={epoch_divisions}')
     tqdm.write(f'IMAGES_PER_DIV={total_images//epoch_divisions}')
 
-    print_separator('TS')
+    util.print_separator('TS')
+    util.seed(42)
     make_population(make_exploiter_default).train()
-    print_separator('UCB')
+
+    util.print_separator('UCB')
+    util.seed(42)
     make_population(make_exploiter_ucb).train()
 
 if __name__ == '__main__':

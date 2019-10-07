@@ -23,7 +23,7 @@
 from collections import defaultdict
 from typing import Optional, List, NoReturn
 from tqdm import tqdm
-from tsucb.helper.util import sorted_random_ties
+from tsucb.helper.util import sorted_random_ties, argsorted_random_ties
 from tsucb.pbt.pbt import Exploiter, IPopulation, IMember, PopulationListener, MergedPopulationListener
 import random
 import numpy as np
@@ -144,8 +144,7 @@ class SuggestUcb(ISuggest):
         # ucb scores
         # we increment the step count by one because everything has already been visited by default
         ucb_scores = SuggestUcb.ucb1(scores, steps, total_steps, C=self._c)
-        # TODO: randomize order to break ties
-        ucb_ordering = np.argsort(ucb_scores)[::-1]
+        ucb_ordering = argsorted_random_ties(ucb_scores)[::-1]
         return filtered[ucb_ordering[0]]
 
     @staticmethod
@@ -498,8 +497,8 @@ class OrigExploitUcb(_OrigExploitTsSubset):
 
         # mode
         if self._select_mode == 'ucb':
-            # TODO SHUFFLE SO THAT TIES ARE BROKEN
-            ucb_ordering = np.argsort(ucb_scores)[::-1]
+            ucb_ordering = argsorted_random_ties(ucb_scores)[::-1]
+            # ucb_ordering = np.argsort(ucb_scores)[::-1]
             return subset[ucb_ordering[0]]
         elif self._select_mode == 'ucb_sample':
             raise KeyError('ucb_sample is no longer a valid method. TODO: replace with softmax-ucb')

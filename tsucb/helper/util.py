@@ -24,6 +24,19 @@
 # util                                                                   #
 # ========================================================================= #
 
+def seed(seed=42):
+    # https://pytorch.org/docs/stable/notes/randomness.html
+    import random
+    import numpy as np
+    import torch.backends.cudnn
+    # python
+    random.seed(seed)
+    # numpy
+    np.random.seed(seed)
+    # torch
+    torch.manual_seed(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
 def is_iterable(obj):
     if type(obj) in {str}:
@@ -76,8 +89,17 @@ def shuffled(x, enabled=True):
 
 def sorted_random_ties(a, key=None):
     import random
-    return sorted(a, key=lambda x: (key(x), random.random()))
+    if key is None:
+        return sorted(a, key=lambda x: (x, random.random()))
+    else:
+        return sorted(a, key=lambda x: (key(x), random.random()))
 
+def argsorted_random_ties(a, key=None):
+    indices = range(len(a))
+    if key is None:
+        return sorted_random_ties(indices, key=lambda i: a[i])
+    else:
+        return sorted_random_ties(indices, key=lambda i: key(a[i]))
 
 def make_empty_dir(path):
     import os
