@@ -55,6 +55,10 @@ class ToyMember(Member):
             np.clip(np.random.normal(self._h.alpha, s), 0, 1),
         )
 
+    @property
+    def mutable_str(self) -> str:
+        return f'coef={self._h.coef}, alpha={self._h.alpha}'
+
     def _step(self, options: dict) -> dict:
         dtheta = -2 * self._h.coef * self._theta
         self._theta += self._h.alpha * dtheta
@@ -122,16 +126,18 @@ def make_plot(ax_col, options, exploiter, steps=200, exploit=True, explore=True,
 def run_dual_test():
 
     options = {
-        "repeats": 200,
-        "steps": 10,
+        "repeats": 1000,
+        "steps": 11,
         "steps_till_ready": 2,
         "exploration_scale": 0.1,
         "population_size": 50,
 
         "warn_exploit_self": True,
+        "print_scores": False,
     }
 
     make_exploit_strategy = lambda: ExploitStrategyTruncationSelection()
+    # make_exploit_strategy = lambda: ExploitStrategyBinaryTournament()
 
     # EXPLOITERS
     exploiters = [
@@ -143,13 +149,13 @@ def run_dual_test():
         # ('orig-ts-esm', lambda: OrigExploitESoftmax(epsilon=0.5, temperature=1.0, subset_mode='top')),
         # new
         ('ts',         lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUniformRandom())),
-        ('ts-egr',     lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonGreedy(epsilon=0.5))),
+        ('ts-egr',     lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonGreedy(epsilon=0.8))),
         ('ts-sm',      lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestSoftmax(temperature=1.0))),
-        ('ts-esm',     lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonSoftmax(epsilon=0.5, temperature=1.0))),
+        ('ts-esm',     lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonSoftmax(epsilon=0.8, temperature=1.0))),
         # ('ts-ucb-0.1',     lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=0.1))),
-        # ('ts-ucb-0.5',     lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=0.5))),
+        ('ts-ucb-0.5',     lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=0.5))),
         ('ts-ucb-1.0',     lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=1.0))),
-        # ('ts-ucb-2.0',     lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=2.0))),
+        ('ts-ucb-2.0',     lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=2.0))),
         # ('ts-eucb',    lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonUcb(epsilon=0.5, c=1.0))),
     ]
     k = len(exploiters)

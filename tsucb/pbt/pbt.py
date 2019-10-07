@@ -232,7 +232,7 @@ class Population(IPopulation):
             if self._options.get('print_scores', False) or self._debug:
                 tqdm.write(f'[RESULTS]: step={i+1} max_score={max(m.score for m in self)} min_score={min(m.score for m in self)}')
                 for j, m in enumerate(self.members):
-                    tqdm.write(f'  {j} - {m.score:5f}{"" if m.history[-1].exploit_id is None else f" <- {m.history[-1].exploit_id}"} | {m.mutable_str}')
+                    tqdm.write(f'  {j}: {m.score:5f}{"" if m.history[-1].exploit_id is None else f" <- {m.history[-1].exploit_id}"} | {m.mutable_str}')
                 tqdm.write('')
 
         # TRAINING CLEANUP
