@@ -131,12 +131,12 @@ class ExperimentTracker(object):
 
 if __name__ == '__main__':
     experiment = ExperimentArgs.from_system_args()
-    # tracker = ExperimentTracker()
-    #
-    # experiment.do_experiment(
-    #     cb_pre_exp=tracker.pre_exp,
-    #     cb_pre_train=tracker.pre_train,
-    #     cb_post_train=tracker.post_train,
-    #     cb_post_exp=tracker.post_exp,
-    # )
+    tracker = ExperimentTracker()
+
+    experiment.do_experiment(
+        cb_pre_exp=tracker.pre_exp,
+        cb_pre_train=tracker.pre_train,
+        cb_post_train=tracker.post_train,
+        cb_post_exp=tracker.post_exp,
+    )
 
