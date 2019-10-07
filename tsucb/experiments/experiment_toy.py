@@ -17,6 +17,7 @@
 #  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
+import os
 
 if __name__ == '__main__':
     from tsucb.helper.util import load_dotenv
@@ -68,7 +69,7 @@ def run_experiment(args: UcbExperimentArgs):
     scores, converge_times, avg_scores_per_step = [], [], np.zeros(args.pbt_steps)
 
     # LOOP
-    for i in tqdm(range(args.experiment_repeats), 'experiment', mininterval=1):
+    for i in tqdm(range(args.experiment_repeats), 'experiment', mininterval=1, disable=os.environ.get("DISABLE_TQDM", False)):
         EXP.set_step(i)
 
         # MEMBERS

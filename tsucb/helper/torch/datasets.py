@@ -57,7 +57,7 @@ def cal_dataset_mean_std(dataset_cls, batch_size=16):
     n = len(loader.dataset)
 
     mean, mean2 = 0, 0
-    for images, _ in tqdm(loader, f'{dataset_cls.__name__} mean & std'):
+    for images, _ in tqdm(loader, f'{dataset_cls.__name__} mean & std', disable=_os.environ.get("DISABLE_TQDM", False)):
         batch_s = images.size(0)  # batch size (the last batch can have smaller size!)
         images = images.view(batch_s, images.size(1), -1)
         # probably not super accurate due to "* (batch_size / n)" as this number is small

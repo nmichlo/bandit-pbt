@@ -1,3 +1,4 @@
+import os
 import time
 from typing import NamedTuple
 import numpy as np
@@ -172,7 +173,7 @@ def run_dual_test():
         tqdm.write(f"{i:{len(str(n))}d}/{n} {' | '.join(f'{name}: {s:9.7f} {c:9.7f} {t:5.3f}s' for (name, _), s, c, t in zip(exploiters, np.average(scores, axis=0), np.average(converge_times, axis=0), np.average(times, axis=0)))}")
 
     # EXPERIMENTS
-    with tqdm(range(options['repeats'])) as itr:
+    with tqdm(range(options['repeats']), disable=os.environ.get("DISABLE_TQDM", False)) as itr:
         for i in itr:
             results = []  # [(score, converge_time, score_seq, pop_len)]
             for name, make_exploiter in exploiters:

@@ -19,6 +19,7 @@
 #  SOFTWARE.
 
 
+import os
 import random
 from typing import List, Iterator, NamedTuple, NoReturn, Optional
 import abc
@@ -181,7 +182,7 @@ class Population(IPopulation):
         if n is None:
             n = self.options.get('steps', 100)
 
-        itr = tqdm(range(n), 'steps') if show_progress else range(n)
+        itr = tqdm(range(n), 'steps', disable=os.environ.get("DISABLE_TQDM", False)) if show_progress else range(n)
 
         # TODO: loops should be swapped for async operations
         #       - original paper describes unsyncronised operations, so members can
