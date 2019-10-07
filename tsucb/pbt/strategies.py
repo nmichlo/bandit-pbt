@@ -24,7 +24,7 @@ from collections import defaultdict
 from typing import Optional, List, NoReturn
 from tqdm import tqdm
 from tsucb.helper.util import sorted_random_ties
-from tsucb.pbt.pbt import Exploiter, IPopulation, IMember
+from tsucb.pbt.pbt import Exploiter, IPopulation, IMember, PopulationListener, MergedPopulationListener
 import random
 import numpy as np
 
@@ -34,23 +34,7 @@ import numpy as np
 # ========================================================================= #
 
 
-class ISuggest(object):
-    # LISTENERS
-    def _member_on_step(self, member) -> NoReturn:
-        pass
-    def _member_on_explored(self, member) -> NoReturn:
-        pass
-    def _member_on_exploit_replaced(self, member) -> NoReturn:
-        pass
-    def _member_on_used_for_exploit(self, member) -> NoReturn:
-        pass
-
-    def assign_listeners(self, obj):
-        obj._member_on_step = self._member_on_step
-        obj._member_on_explored = self._member_on_explored
-        obj._member_on_exploit_replaced = self._member_on_exploit_replaced
-        obj._member_on_used_for_exploit = self._member_on_used_for_exploit
-        return self
+class ISuggest(PopulationListener):
 
     # SUGGEST
     def suggest(self, filtered: List['IMember']) -> IMember:
@@ -62,6 +46,7 @@ class ISuggest(object):
         return str(self)
 
 class _SuggestRandomGreedy(ISuggest):
+
     def __init__(self, wrapped_suggest, epsilon=0.5):
         """
         :param epsilon: Chance to select wrapped_suggest, otherwise makes the greedy choice.
@@ -70,14 +55,15 @@ class _SuggestRandomGreedy(ISuggest):
         assert isinstance(wrapped_suggest, ISuggest)
         self._epsilon = epsilon
         self._wrapped_suggest = wrapped_suggest
-        # Add listeners
-        self._wrapped_suggest.assign_listeners(self)
+        # >>> OVERRIDE LISTENERS <<<
+        self._wrapped_suggest.assign_listeners_to(self)
 
     def suggest(self, filtered: List['IMember']) -> IMember:
         if np.random.random() < self._epsilon:
             return self._wrapped_suggest.suggest(filtered)
         else:
             return filtered[np.argmax([m.score for m in filtered])]
+
 
 class SuggestUniformRandom(ISuggest):
     def suggest(self, filtered: List['IMember']) -> IMember:
@@ -184,7 +170,7 @@ class SuggestEpsilonUcb(_SuggestRandomGreedy):
 # ========================================================================= #
 
 
-class IExploitStrategy(object):
+class IExploitStrategy(PopulationListener):
     def block(self, current: 'IMember', population: 'IPopulation') -> bool:
         return False
     def accept(self, suggestion: 'IMember', current: 'IMember', population: 'IPopulation'):
@@ -217,6 +203,14 @@ class ExploitStrategyTruncationSelection(IExploitStrategy):
         self._top_ratio = top_ratio
         # assumes that block is always called before filter.
         self._temp_sorted = None
+        # RESET EVERY POPULATION STEP
+        self._exploited_count = 0
+
+    def _population_stepped(self) -> NoReturn:
+        print(self._exploited_count)
+        self._exploited_count = 0
+    def _member_on_used_for_exploit(self, member) -> NoReturn:
+        self._exploited_count += 1
 
     def filter(self, population: 'IPopulation') -> List['IMember']:
         # USE CACHED SORT RESULT
@@ -228,6 +222,11 @@ class ExploitStrategyTruncationSelection(IExploitStrategy):
     def block(self, current: 'IMember', population: 'IPopulation'):
         # If the current agent is in the bottom % of the population
         idx_low = int(len(population) * self._bottom_ratio)
+
+        # dont exploit more than the allowed number each step of the population.
+        if self._exploited_count >= idx_low:
+            return True
+
         members = sorted_random_ties(population, key=lambda m: m.score)
         is_blocked = members.index(current) >= idx_low
         # CACHE SORT RESULT IF NEEDED
@@ -250,7 +249,8 @@ class GeneralisedExploiter(Exploiter):
         self._suggester = suggester
         self._strategy = strategy
         # add listeners
-        self._suggester.assign_listeners(self)
+        self._listeners = MergedPopulationListener(self._suggester, self._strategy)
+        self._listeners.assign_listeners_to(self)
 
     def exploit(self, population: 'IPopulation', current: 'IMember') -> Optional['IMember']:
         if self._strategy.block(current, population):
@@ -470,9 +470,9 @@ class OrigExploitUcb(_OrigExploitTsSubset):
 
     def _choose(self, subset: List['IMember'], population: 'IPopulation', member: 'IMember') -> 'IMember':
         if self.debug:
-            tqdm.write()
+            tqdm.write('')
             self._debug_message('REPLACING', member)
-            tqdm.write()
+            tqdm.write('')
 
         # assert len(_pop) == len(members), 'Not all members were included'
         # normalise scores

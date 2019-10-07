@@ -115,7 +115,7 @@ for expl_dists in expl_dist_hist[1:]:
 # for prv, nxt, steps in zip(parent_hist[:-1], parent_hist[1:], step_dist_hist[:-1]):
 #     for p, n in zip(prv, nxt):
 #         tqdm.write(p, end=' ')
-#     tqdm.write()
+#     tqdm.write('')
 # tqdm.write(f'{np.array(parent_hist)}')
 
 

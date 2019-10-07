@@ -24,6 +24,8 @@ from typing import List, Iterator, NamedTuple, NoReturn, Optional
 import abc
 import numpy as np
 from tqdm import tqdm
+from uuid import uuid4
+
 from tsucb.helper.util import shuffled
 
 
@@ -125,9 +127,6 @@ class Population(IPopulation):
         if len(members) < 1:
             raise RuntimeError('Population must have at least one member')
 
-        for i, m in enumerate(self._members):
-            m._set_id(i)
-
         if options is None:
             options = {}
         self._options = options
@@ -137,6 +136,18 @@ class Population(IPopulation):
         self._exploiter._set_used()
 
         self._debug = options.get('debug', False)
+
+        # unique population identifier
+        self._id = uuid4()
+
+        # initialise members
+        for i, m in enumerate(self._members):
+            m._initialise(self._id, i)
+
+
+    @property
+    def id(self) -> str:
+        return self._id
 
     @property
     def members(self) -> List['IMember']:
@@ -215,8 +226,20 @@ class Population(IPopulation):
                 # TODO: needed for async operations
                 # self._update(idx, member)
 
+            # END OF STEP
+            self._exploiter._population_stepped()
+
             if self.debug:
                 tqdm.write(f'[STEP COMPLETE]: max_score={max(m.score for m in self)} min_score={min(m.score for m in self)}')
+
+            if self._options.get('print_scores', False):
+                tqdm.write(f'[RESULTS]: step={i+1}')
+                for j, m in enumerate(self.members):
+                    tqdm.write(f'  {j} - {m.score:5f}{"" if m.history[-1].exploit_id is None else f" <- {m.history[-1].exploit_id}"} | {m.mutable_str}')
+
+        # CLEANUP
+        for m in self.members:
+            m.cleanup()
 
         return self
 
@@ -253,7 +276,7 @@ class Population(IPopulation):
         liniage = [i for i in range(len(self))]
         curr_liniage = len(self)
 
-        tqdm.write()
+        tqdm.write('')
         for step in histories:
             assert all(h1.t == h2.t for h1, h2 in zip(step[:-1], step[1:]))
 
@@ -270,7 +293,7 @@ class Population(IPopulation):
 
             tqdm.write(f'{str(step[0].t):4s}| {string_a}')
             tqdm.write(f'    | {string_b}')
-        tqdm.write()
+        tqdm.write('')
 
 
 # ========================================================================= #
@@ -309,8 +332,12 @@ class IMember(abc.ABC):
     Members remember their history of updates.
     """
 
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
         self._id = None
+        self._population_id = None
+        # params
+        self._args = args
+        self._kwargs = kwargs
 
     @abc.abstractmethod
     def copy_h(self) -> object:
@@ -318,6 +345,10 @@ class IMember(abc.ABC):
         :return: A deepcopy of the members hyper-parameters (h)
         """
         pass
+
+    @property
+    def mutable_str(self) -> str:
+        raise NotImplementedError('Override Me')
 
     @abc.abstractmethod
     def _set_h(self, h) -> NoReturn:
@@ -336,10 +367,27 @@ class IMember(abc.ABC):
         assert self._id is not None, 'Member not yet added to a population'
         return self._id
 
-    def _set_id(self, id):
+    @property
+    def population_id(self):
+        assert self._population_id is not None, 'Member not yet added to a population'
+        return self._population_id
+
+    def _initialise(self, population_id, id):
         assert self._id is None, 'Member already added to a population'
+        assert population_id is not None, 'Invalid Population id'
         assert id is not None, 'Invalid id'
+        self._population_id = population_id
         self._id = id
+        self._setup(*self._args, **self._kwargs)
+        del self._args
+        del self._kwargs
+
+    @abc.abstractmethod
+    def _setup(self, *args, **kwargs) -> NoReturn:
+        """
+        Intended to be overridden to initialise the member.
+        """
+        pass
 
     @property
     @abc.abstractmethod
@@ -410,6 +458,12 @@ class IMember(abc.ABC):
         """
         pass
 
+    @abc.abstractmethod
+    def cleanup(self):
+        """
+        Called after training, intended to destroy resources held by the member.
+        """
+
 
 class Member(IMember):
     """
@@ -421,8 +475,8 @@ class Member(IMember):
     Provides simplified abstract methods that need to be overridden.
     """
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         # current score, also known as 'Q'
         self._p = float('-inf')
         # current step
@@ -546,13 +600,62 @@ class Member(IMember):
         """
         pass
 
+    def cleanup(self):
+        self._cleanup()
+
+    def _cleanup(self):
+        """ OVERRIDE ME """
+        pass
+
 
 # ========================================================================= #
 # Exploiter                                                                  #
 # ========================================================================= #
 
 
-class IExploiter(abc.ABC):
+class PopulationListener(abc.ABC):
+    def _member_on_step(self, member) -> NoReturn:
+        pass
+    def _member_on_explored(self, member) -> NoReturn:
+        pass
+    def _member_on_exploit_replaced(self, member) -> NoReturn:
+        pass
+    def _member_on_used_for_exploit(self, member) -> NoReturn:
+        pass
+    def _population_stepped(self) -> NoReturn:
+        pass
+
+    # HELPER
+    def assign_listeners_to(self, target):
+        target._member_on_step = self._member_on_step
+        target._member_on_explored = self._member_on_explored
+        target._member_on_exploit_replaced = self._member_on_exploit_replaced
+        target._member_on_used_for_exploit = self._member_on_used_for_exploit
+        return self
+
+
+class MergedPopulationListener(PopulationListener):
+    def __init__(self, a, b):
+        self._a = a
+        self._b = b
+    def _member_on_step(self, member) -> NoReturn:
+        self._a._member_on_step(member)
+        self._b._member_on_step(member)
+    def _member_on_explored(self, member) -> NoReturn:
+        self._a._member_on_explored(member)
+        self._b._member_on_explored(member)
+    def _member_on_exploit_replaced(self, member) -> NoReturn:
+        self._a._member_on_exploit_replaced(member)
+        self._b._member_on_exploit_replaced(member)
+    def _member_on_used_for_exploit(self, member) -> NoReturn:
+        self._a._member_on_used_for_exploit(member)
+        self._b._member_on_used_for_exploit(member)
+    def _population_stepped(self) -> NoReturn:
+        self._a._population_stepped()
+        self._b._population_stepped()
+
+
+class IExploiter(PopulationListener):
 
     def __init__(self):
         self._used = False
@@ -568,18 +671,6 @@ class IExploiter(abc.ABC):
         :param member: The current member requiring exploitation.
         :return The member to be exploited, used by self.exploit().
         """
-        pass
-
-    def _member_on_step(self, member) -> NoReturn:
-        pass
-
-    def _member_on_explored(self, member) -> NoReturn:
-        pass
-
-    def _member_on_exploit_replaced(self, member) -> NoReturn:
-        pass
-
-    def _member_on_used_for_exploit(self, member) -> NoReturn:
         pass
 
     @property

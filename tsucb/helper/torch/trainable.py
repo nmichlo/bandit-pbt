@@ -20,6 +20,8 @@
 
 
 import torchvision
+from tqdm import tqdm
+
 import tsucb.helper.torch
 import torch
 import torch.utils.data
@@ -117,43 +119,98 @@ def data_creator(config) -> Tuple[torchvision.datasets.VisionDataset, torchvisio
 # TRAINABLE                                                                 #
 # ========================================================================= #
 
+# TODO: move into population
+_LOADER_STORAGE = {}
+
+
 class TorchTrainable(object):
-    def __init__(self, config):
-        self._config = config
+
+    _DEFAULT_WORKERS = 4
+    _DEFAULT_TRAIN_SHUFFLE = True
+
+    def __init__(self, config, share_id=None):
+        self._share_id = share_id
 
         # GPU SUPPORT
-        use_cuda = config['use_gpu'] and torch.cuda.is_available()
-        self._device = torch.device("cuda" if use_cuda else "cpu")
+        self._use_gpu = config['use_gpu'] and torch.cuda.is_available()
+        self._device = torch.device("cuda" if self._use_gpu else "cpu")
+
+        # CONFIG CONSTS
+        self._train_images_per_step = config.get('train_images_per_step', None)
+        self._batch_size = config['batch_size']
+        self._train_shuffle = config.get('train_shuffle', self._DEFAULT_TRAIN_SHUFFLE)
+        self._num_workers = config.get('num_workers', self._DEFAULT_WORKERS if self._use_gpu else 0)
+        self._pin_memory = config.get('pin_memory', False) and self._use_gpu
+
+        # TORCH VARS
+        self._model = None
+        self._criterion = None
+        self._optimizer = None
+        self._train_loader = None
+        self._test_loader = None
 
         # VARS
-        self._model: torch.nn.Module = model_creator(config).to(self._device)
+        self._trainer = None
+
+        # INIT
+        self.reset(config)
+
+    def _check_config(self, config):
+        assert self._train_images_per_step == config.get('train_images_per_step', None),                      'Changes to dataset "train_images_per_step" not allowed during training.'
+        assert self._batch_size == config['batch_size'],                                                      'Changes to dataset "batch_size" not allowed during training.'
+        assert self._train_shuffle == config.get('train_shuffle', self._DEFAULT_TRAIN_SHUFFLE),               'Changes to dataset "train_shuffle" not allowed during training.'
+        assert self._num_workers == config.get('num_workers', self._DEFAULT_WORKERS if self._use_gpu else 0), 'Changes to dataset "num_workers" not allowed during training.'
+        assert self._pin_memory == config.get('pin_memory', False) and self._use_gpu,                                   'Changes to dataset "pin_memory" not allowed during training.'
+
+    def reset(self, config):
+        if (self._train_loader is None) and (self._test_loader is None) and (self._trainer is None):
+            # TODO: MUTATION CHECKS
+            self._model = model_creator(config).to(self._device)
+
+            # TRAINER
+            # TODO: fix train region
+            self._trainer = helper.torch.models.StepTrainer()
+
+            # INIT DATASET
+            if (self._share_id is None) or (self._share_id not in _LOADER_STORAGE):
+                trainset, testset = data_creator(config)
+                self._train_loader = torch.utils.data.DataLoader(
+                    trainset,
+                    batch_size=self._batch_size,
+                    shuffle=self._train_shuffle,
+                    num_workers=self._num_workers,
+                    pin_memory=self._pin_memory,
+                )
+                self._test_loader = torch.utils.data.DataLoader(
+                    testset,
+                    batch_size=self._batch_size,
+                    shuffle=False,
+                    num_workers=self._num_workers,
+                    pin_memory=self._pin_memory,
+                )
+
+                if self._share_id is not None:
+                    _LOADER_STORAGE[self._share_id] = (self._train_loader, self._test_loader)
+
+            # DATASET
+            if self._share_id is not None:
+                self._train_loader, self._test_loader = _LOADER_STORAGE[self._share_id]
+        else:
+            self._check_config(config)
+
+        # LOSS & OPTIMIZER
         self._criterion, self._optimizer = optimizer_creator(self._model, config)
-        trainset, testset = data_creator(config)
 
-        # TRAIN DATASET
-        self._train_loader = torch.utils.data.DataLoader(
-            trainset,
-            batch_size=config['batch_size'],
-            shuffle=config.get('train_shuffle', True),  # TODO fix True, this may effect training after exploitation
-            num_workers=config.get('num_workers', 2 if use_cuda else 0),  # TODO: fix 2 when use_cuda
-            pin_memory=config.get('pin_memory', use_cuda), # TODO: fix True when use_cuda
-            # **({'sampler': SubsetRandomSampler(indices=np.random.choice(a=np.arange(0, len(trainset)), size=config['train_subset'], replace=False))} if config.get('train_subset', False) else {})
-        )
-
-        # TEST DATASET
-        self._test_loader = torch.utils.data.DataLoader(
-            testset,
-            batch_size=config['batch_size'],
-            shuffle=False,
-            num_workers=config.get('num_workers', 2 if use_cuda else 0),  # TODO: fix 2 when use_cuda
-            pin_memory=config.get('pin_memory', use_cuda),  # TODO: fix True when use_cuda
-        )
-
-        # TRAINER
-        self._trainer = helper.torch.models.StepTrainer()
-
-    def get_config(self) -> dict:
-        return deepcopy(self._config)
+    def cleanup(self):
+        if self._share_id is not None:
+            if self._share_id in _LOADER_STORAGE:
+                del _LOADER_STORAGE[self._share_id]
+        self._model = None
+        self._criterion = None
+        self._optimizer = None
+        self._train_loader = None
+        self._test_loader = None
+        self._trainer = None
 
     def eval(self) -> dict:
         correct, loss = helper.torch.models.test(self._model, self._device, self._test_loader, self._criterion)
@@ -164,8 +221,7 @@ class TorchTrainable(object):
 
     def train(self) -> NoReturn:
         # helper.torch.models.train(self._model, self._device, self._train_loader, self._optimizer) #, log_time_interval=self._config.get('train_log_interval', -1))
-        self._trainer.train(self._model, self._device, self._train_loader, self._optimizer, self._criterion, num_images=self._config.get('train_imgs_per_step', None))
-
+        self._trainer.train(self._model, self._device, self._train_loader, self._optimizer, self._criterion, num_images=self._train_images_per_step)
 
     def save(self, path) -> NoReturn:
         state = dict(

@@ -24,9 +24,9 @@ from copy import deepcopy
 from typing import Tuple, NoReturn
 from tsucb.helper.torch.models import StepTrainer
 from tsucb.helper.torch.trainable import TorchTrainable
-from tsucb.helper.util import make_empty_dir
+from tsucb.helper.util import make_empty_dir, print_separator
 from tsucb.pbt.pbt import Member, Population, IExploiter, Exploiter
-from tsucb.pbt.strategies import GeneralisedExploiter, SuggestUniformRandom, ExploitStrategyTruncationSelection
+from tsucb.pbt.strategies import *
 
 
 # ========================================================================= #
@@ -97,9 +97,9 @@ CHECKPOINT_MAP = {}
 
 
 class MemberTorch(Member):
-    def __init__(self, config):
-        super().__init__()
-        self._trainable = TorchTrainable(deepcopy(config))
+    def _setup(self, config) -> NoReturn:
+        self._config = config
+        self._trainable = TorchTrainable(deepcopy(config), share_id=self.population_id)
 
     def _save_theta(self, id):
         CHECKPOINT_MAP[id] = os.path.join(CHECKPOINT_DIR, f'checkpoint_{id}.dat')
@@ -109,14 +109,15 @@ class MemberTorch(Member):
         self._trainable.restore(CHECKPOINT_MAP[id])
 
     def copy_h(self) -> dict:
-        return self._trainable.get_config()
+        return deepcopy(self._config)
 
     def _set_h(self, h) -> NoReturn:
-        self._trainable = TorchTrainable(config=h)
+        self._config = h
+        self._trainable.reset(config=h)
         self._trainable.restore(CHECKPOINT_MAP[self.id])
 
     def _explored_h(self, population: 'Population') -> dict:
-        config = self._trainable.get_config()
+        config = deepcopy(self._config)
         mutations = config['mutations']
         # traverse down dictionary based on splitting mutation keys on '\'
         assert len(mutations) > 0
@@ -127,6 +128,16 @@ class MemberTorch(Member):
             current[keys[-1]] = MUTATIONS[args[0]](current[keys[-1]], *args[1:])
         return config
 
+    @property
+    def mutable_str(self) -> str:
+        items = {}
+        for path, args in self._config['mutations'].items():
+            current, keys = self._config, path.split('/')
+            for k in keys[:-1]:
+                current = current[k]
+            items[keys[-1]] = current[keys[-1]]
+        return f'[{", ".join(f"{k}={v}" for k,v in items.items())}]'
+
     def _step(self, options: dict) -> NoReturn:
         self._trainable.train()
         return None
@@ -135,6 +146,9 @@ class MemberTorch(Member):
         results = self._trainable.eval()
         return results['correct'] * 100
 
+    def _cleanup(self):
+        self._trainable.cleanup()
+
 
 # ========================================================================= #
 # MEMBER                                                                    #
@@ -142,6 +156,14 @@ class MemberTorch(Member):
 
 
 def main():
+
+    batch_size = 32
+    epoch_divisions = 5
+    total_images = 60000
+    epochs = 5
+
+    assert total_images % epoch_divisions == 0
+    assert (total_images // epoch_divisions) % batch_size == 0
 
     def make_member_options():
         return dict(
@@ -165,32 +187,50 @@ def main():
 
             # TODO: move into separate dict
             train_log_interval=-1,
-            train_imgs_per_step=12000,  # = ((60000/32/5) == 375) * 32
+            train_images_per_step=total_images//epoch_divisions,  # 60000/5
 
-            batch_size=32,
+            batch_size=batch_size,
             use_gpu=True,
         )
 
     population_options = dict(
+        members=20,
         steps_till_ready=1,
-        steps=20,
+        steps=epochs*epoch_divisions,  # 5 epochs * steps per epoch
         debug=False,
         warn_exploit_self=True,
+        print_scores=True,
     )
 
-    def make_exploiter():
+    def make_exploiter_default():
         return GeneralisedExploiter(
             strategy=ExploitStrategyTruncationSelection(),
             suggester=SuggestUniformRandom()
         )
 
-    population = Population(
-        members=[MemberTorch(make_member_options()) for _ in range(5)],
-        exploiter=make_exploiter(),
-        options=population_options
-    )
+    def make_exploiter_ucb():
+        return GeneralisedExploiter(
+            strategy=ExploitStrategyTruncationSelection(),
+            suggester=SuggestUcb()
+        )
 
-    population.train()
+    def make_population(exploit_maker):
+        return Population(
+            members=[MemberTorch(make_member_options()) for _ in range(population_options['members'])],
+            exploiter=exploit_maker(),
+            options=population_options
+        )
+
+    tqdm.write(f'BATCH_SIZE={batch_size}')
+    tqdm.write(f'EPOCHS={epochs}')
+    tqdm.write(f'DATASET_SIZE={total_images}')
+    tqdm.write(f'EPOCH_DIVISIONS={epoch_divisions}')
+    tqdm.write(f'IMAGES_PER_DIV={total_images//epoch_divisions}')
+
+    print_separator('TS')
+    make_population(make_exploiter_default).train()
+    print_separator('UCB')
+    make_population(make_exploiter_ucb).train()
 
 if __name__ == '__main__':
     main()
