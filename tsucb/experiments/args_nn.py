@@ -119,7 +119,9 @@ class ExperimentArgs(Attrs):
     tracker_converge_score:   Optional[float] = field(default=None)                                                    # used
     # EXTRA
     debug:                    bool            = field(default=False)                                                   # used
-    enable_comet:             bool            = field(default=False)                                                   # TODO
+    # COMET
+    comet_enable:             bool            = field(default=False)                                                   # TODO
+    comet_project_name:       Optional[str]   = field(default=None)                                                    # used
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

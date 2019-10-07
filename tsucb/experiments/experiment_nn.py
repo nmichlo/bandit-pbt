@@ -59,7 +59,8 @@ class ExperimentTracker(object):
 
     def pre_exp(self, exp: ExperimentArgs):
         self.COMET = comet_ml.Experiment(
-            disabled=not exp.enable_comet,
+            project_name=exp.comet_project_name,
+            disabled=not exp.comet_enable,
             display_summary=True,
             parse_args=False,
         )
