@@ -188,12 +188,12 @@ class Population(IPopulation):
         #         exploit explore at any time if the conditions are met.
         for i in itr:
             # partial async simulation with members not finishing in the same order.
-            ids_members = shuffled(enumerate(self.members), enabled=randomize_order)
+            shuffled_members = shuffled(self.members, enabled=randomize_order)
             if show_progress:
                 max_score = max(m.score for m in self)
 
             # ADVANCE POPULATION
-            for j, (dx, member) in enumerate(ids_members):  # should be async
+            for j, member in enumerate(shuffled_members):  # should be async
                 if show_progress:
                     itr.set_description(f'step {i+1}/{n} (member {j+1}/{len(self.members)}) [{max_score}]')
                 # one step of optimisation using hyper-parameters h
@@ -201,10 +201,12 @@ class Population(IPopulation):
                 # current model evaluation
                 self._eval(member)
 
+            # TODO: is separating this better?
             # EXPLOIT / EXPLORE
-            for j, (dx, member) in enumerate(ids_members):  # should be async
+            for j, member in enumerate(shuffled_members):  # should be async
                 if show_progress:
                     itr.set_description(f'step {i + 1}/{n} (exploiting+exploring)')
+
                 # READY?
                 if self._is_ready(member):
                     do_explore = explore
@@ -231,13 +233,28 @@ class Population(IPopulation):
             # STEP - LOGGING
             if self._options.get('print_scores', False) or self._debug:
                 tqdm.write(f'[RESULTS]: step={i+1} max_score={max(m.score for m in self)} min_score={min(m.score for m in self)}')
-                for j, m in enumerate(self.members):
-                    tqdm.write(f'  {j}: {m.score:5f}{"" if m.history[-1].exploit_id is None else f" <- {m.history[-1].exploit_id}"} | {m.mutable_str}')
+                for m in sorted(self.members, key=lambda m: m.score):
+                    tqdm.write(f'  {m.id}: {m.score:5f}{"" if m.history[-1].exploit_id is None else f" <- {m.history[-1].exploit_id}"} | {m.mutable_str}')
                 tqdm.write('')
+
+            # STEP CALLBACK
+            if callable(self._options.get('step_callback', None)):
+                self._options['step_callback'](self, i)
+
+            # EARLY STOP
+            if self._options.get('target_score', None) is not None:
+                max_score, target_score = max(m.score for m in self), self._options['target_score']
+                if max_score >= target_score:
+                    tqdm.write(f'[EARLY STOP]: (max score) {max_score} >= {target_score} (target score)')
+                    break
 
         # TRAINING CLEANUP
         for m in self.members:
             m.cleanup()
+
+        # END CALLBACK
+        if callable(self._options.get('end_callback', None)):
+            self._options['end_callback'](self)
 
         return self
 
@@ -482,7 +499,6 @@ class Member(IMember):
         self._t_last_explore = 0
         # should the score value be recalculated
         self._recal = False  # we want to use infinity for the first step.
-        self._exploited = None
         self._results = None
         # other vars
         self._history = []
@@ -496,9 +512,12 @@ class Member(IMember):
     def history(self) -> List['HistoryItem']:
         return self._history
 
-    def _push_history(self):
-        self._history.append(HistoryItem(self.copy_h(), self._p, self._t, self._exploited, self._results))
-        self._exploited = None
+    def _push_history(self, exploit_id=None):
+        self._history.append(HistoryItem(self.copy_h(), self._p, self._t, exploit_id, self._results))
+
+    def _push_history_update(self, exploit_id=None):
+        self._history.pop()
+        self._push_history(exploit_id)
 
     def step(self, options: dict):
         # append to member's history.
@@ -549,8 +568,9 @@ class Member(IMember):
         self._save_theta(self.id)
         self._set_h(member.copy_h())
         self._recal = True
-        # Append to history on next step
-        self._exploited = member.id
+        # update history for this step
+        # check the next item in the history for the true info.
+        self._push_history_update(member.id)
         # Success
         return member
 
@@ -561,6 +581,7 @@ class Member(IMember):
         self._set_h(exploring_h)
         self._recal = True
         self._t_last_explore = self._t
+        # TODO: should the history be updated here?
         # Success
         return True
 

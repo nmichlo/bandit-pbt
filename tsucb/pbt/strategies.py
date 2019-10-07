@@ -112,7 +112,7 @@ class SuggestUcb(ISuggest):
     def _debug_message(self, message, member=None):
         if self.debug:
             extra = list(self.__step_counts.keys()).index(member) if member and member in self.__step_counts else ''
-            tqdm.write(f'{message:>10s}:', list(self.__step_counts.values()), extra)
+            tqdm.write(f'{message:>10s}: {list(self.__step_counts.values())} {extra}')
 
     # THESE TWO STRATEGIES ARE EFFECTIVELY THE SAME - ALWAYS HAPPEN TOGETHER
     def _member_on_explored(self, member):
