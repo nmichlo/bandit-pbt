@@ -149,9 +149,9 @@ def run_dual_test():
         # ('orig-ts-esm', lambda: OrigExploitESoftmax(epsilon=0.5, temperature=1.0, subset_mode='top')),
         # new
         ('ts',         lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUniformRandom())),
-        ('ts-egr',     lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonGreedy(epsilon=0.8))),
+        ('ts-egr',     lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonGreedy(epsilon=0.75))),
         ('ts-sm',      lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestSoftmax(temperature=1.0))),
-        ('ts-esm',     lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonSoftmax(epsilon=0.8, temperature=1.0))),
+        ('ts-esm',     lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonSoftmax(epsilon=0.75, temperature=1.0))),
         # ('ts-ucb-0.1',     lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=0.1))),
         ('ts-ucb-0.5',     lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=0.5))),
         ('ts-ucb-1.0',     lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=1.0))),
