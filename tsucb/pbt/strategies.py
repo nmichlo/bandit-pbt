@@ -206,8 +206,8 @@ class ExploitStrategyTruncationSelection(IExploitStrategy):
         # RESET EVERY POPULATION STEP
         self._exploited_count = 0
 
+    # POPULATION LISTENERS
     def _population_stepped(self) -> NoReturn:
-        print(self._exploited_count)
         self._exploited_count = 0
     def _member_on_used_for_exploit(self, member) -> NoReturn:
         self._exploited_count += 1

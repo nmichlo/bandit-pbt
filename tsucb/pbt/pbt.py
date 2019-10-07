@@ -189,23 +189,26 @@ class Population(IPopulation):
         for i in itr:
             # partial async simulation with members not finishing in the same order.
             ids_members = shuffled(enumerate(self.members), enabled=randomize_order)
-
             if show_progress:
                 max_score = max(m.score for m in self)
 
+            # ADVANCE POPULATION
             for j, (dx, member) in enumerate(ids_members):  # should be async
-
                 if show_progress:
                     itr.set_description(f'step {i+1}/{n} (member {j+1}/{len(self.members)}) [{max_score}]')
-
                 # one step of optimisation using hyper-parameters h
                 self._step(member)
                 # current model evaluation
                 self._eval(member)
 
+            # EXPLOIT / EXPLORE
+            for j, (dx, member) in enumerate(ids_members):  # should be async
+                if show_progress:
+                    itr.set_description(f'step {i + 1}/{n} (exploiting+exploring)')
+                # READY?
                 if self._is_ready(member):
                     do_explore = explore
-
+                    # EXPLOIT
                     if exploit:
                         if self.debug:
                             tqdm.write(f'[EXPLOITING]: {member.id}')
@@ -213,7 +216,7 @@ class Population(IPopulation):
                         exploited = self._exploit(member)
                         # only explore if we exploited
                         do_explore = do_explore and exploited
-
+                    # EXPLORE
                     if do_explore:
                         if self.debug:
                             tqdm.write(f'[EXPLORING]: {member.id}')
@@ -222,22 +225,17 @@ class Population(IPopulation):
                         # new model evaluation
                         self._eval(member)
 
-                # update population
-                # TODO: needed for async operations
-                # self._update(idx, member)
-
-            # END OF STEP
+            # STEP - END
             self._exploiter._population_stepped()
 
-            if self.debug:
-                tqdm.write(f'[STEP COMPLETE]: max_score={max(m.score for m in self)} min_score={min(m.score for m in self)}')
-
-            if self._options.get('print_scores', False):
-                tqdm.write(f'[RESULTS]: step={i+1}')
+            # STEP - LOGGING
+            if self._options.get('print_scores', False) or self._debug:
+                tqdm.write(f'[RESULTS]: step={i+1} max_score={max(m.score for m in self)} min_score={min(m.score for m in self)}')
                 for j, m in enumerate(self.members):
                     tqdm.write(f'  {j} - {m.score:5f}{"" if m.history[-1].exploit_id is None else f" <- {m.history[-1].exploit_id}"} | {m.mutable_str}')
+                tqdm.write('')
 
-        # CLEANUP
+        # TRAINING CLEANUP
         for m in self.members:
             m.cleanup()
 
@@ -631,6 +629,7 @@ class PopulationListener(abc.ABC):
         target._member_on_explored = self._member_on_explored
         target._member_on_exploit_replaced = self._member_on_exploit_replaced
         target._member_on_used_for_exploit = self._member_on_used_for_exploit
+        target._population_stepped = self._population_stepped
         return self
 
 
