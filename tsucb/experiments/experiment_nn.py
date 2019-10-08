@@ -72,9 +72,15 @@ class ExperimentTracker(object):
             exp.pbt_exploit_suggest,
             'pbt'
         ])
+        # log parameters
         used_opts = exp.to_dict(used_only=True)
         print_separator(used_opts)
         self.COMET.log_parameters(used_opts)
+
+        # log computed parameters
+        computed_opts = exp.get_dict_computed()
+        print_separator(computed_opts)
+        self.COMET.log_others(computed_opts)
 
         # AVERAGE VARS
         self.scores = []
@@ -86,7 +92,7 @@ class ExperimentTracker(object):
 
     def post_train(self, exp: ExperimentArgs, i: int, population: Population):
         # Calculates the score as the index of the first occurrence greater than 1.18
-        _firsts = np.argmax(population.scores_history > 1.18, axis=1)
+        _firsts = np.argmax(population.scores_history > exp.tracker_converge_score, axis=1)
         _firsts[_firsts == 0] = exp.tracker_converge_score
 
         # STEP SCORES
@@ -96,6 +102,10 @@ class ExperimentTracker(object):
         self.scores.append(score)
         self.converge_times.append(converge_time)
         self.avg_scores_per_step += population.scores_history.max(axis=0) * (1.0 / exp.experiment_repeats)
+
+        # TODO: append all scores, dont average
+        # TODO: append all scores, dont average
+        # TODO: append all scores, dont average
 
         # LOG STEP
         self.log_step(i, score, converge_time)
@@ -107,6 +117,10 @@ class ExperimentTracker(object):
         self.scores              = np.array(self.scores)
         self.converge_times      = np.array(self.converge_times)
         self.avg_scores_per_step = np.array(self.avg_scores_per_step)
+
+        # TODO: compute, min, max, mean, confidence over all scores for each step.
+        # TODO: compute, min, max, mean, confidence over all scores for each step.
+        # TODO: compute, min, max, mean, confidence over all scores for each step.
 
         # LOG
         ave_score       = np.average(self.scores)
@@ -128,6 +142,11 @@ class ExperimentTracker(object):
 
         # END EXPERIMENT
         self.COMET.end()
+
+        # TODO: save results to disk
+        # TODO: save results to disk
+        # TODO: save results to disk
+
 
 
 if __name__ == '__main__':

@@ -97,9 +97,9 @@ def plot_theta(ax, population, steps, title):
 
 def make_plot(ax_col, options, exploiter, steps=200, title=None):
     population = Population([
-        ToyMember(ToyHyperParams(np.array([1., .0]), 0.01), np.array([.9, .9])),
-        ToyMember(ToyHyperParams(np.array([.0, 1.]), 0.01), np.array([.9, .9])),
-        # *[ToyMember(h=ToyHyperParams(np.random.rand(2) * 0.5, 0.01), theta=np.array([.9, .9])) for i in range(options['population_size'])],
+        # ToyMember(ToyHyperParams(np.array([1., .0]), 0.01), np.array([.9, .9])),
+        # ToyMember(ToyHyperParams(np.array([.0, 1.]), 0.01), np.array([.9, .9])),
+        *[ToyMember(h=ToyHyperParams(np.random.rand(2) * 0.5, 0.01), theta=np.array([.9, .9])) for i in range(options['population_size'])],
         # *[ToyMember(ToyHyperParams(np.array([np.random.rand()*0.5, 1.]), 0.01), np.array([.9, .9])) for i in range(3)],
     ], exploiter=exploiter, member_options=options)
 
@@ -122,8 +122,10 @@ def make_plot(ax_col, options, exploiter, steps=200, title=None):
 
     score = np.max(population.scores)
 
-    plot_theta(ax_col[0], population, steps=steps, title=title)
-    plot_performance(ax_col[1], population, steps=steps, title=title)
+    if options['repeats'] <= 10:
+        plot_theta(ax_col[0], population, steps=steps, title=title)
+        plot_performance(ax_col[1], population, steps=steps, title=title)
+
     return score, time_to_converge, scores.max(axis=0), len(population), t1 - t0
 
 
@@ -134,17 +136,17 @@ def make_plot(ax_col, options, exploiter, steps=200, title=None):
 
 def run_dual_test():
     options = {
-        "steps": 100,
-        "steps_till_ready": 10,
+        "steps": 13,
+        "steps_till_ready": 2,
 
         "debug": False,
         "warn_exploit_self": True,
-        "exploit_copies_h": False,
+        "exploit_copies_h": False,  # must be False for toy example to be valid
 
         # custom
-        "repeats": 1,
-        "exploration_scale": 0.05,
-        "population_size": 2,
+        "repeats": 250,
+        "exploration_scale": 0.1,
+        "population_size": 40,
         "print_scores": False
     }
 
@@ -153,21 +155,22 @@ def run_dual_test():
     # EXPLOITERS
     exploiters = [
         # orig
-        ('orig-ts',     lambda: OrigExploitTruncationSelection()),
+        # ('orig-ts',     lambda: OrigExploitTruncationSelection()),
         # ('orig-ts-eg',  lambda: OrigExploitEGreedy(epsilon=0.5, subset_mode='top')),
         # ('orig-ts-ucb', lambda: OrigExploitUcb(c=1.0, subset_mode='top', normalise_mode='subset', incr_mode='exploited')),
         # ('orig-ts-sm',  lambda: OrigExploitSoftmax(temperature=1.0, subset_mode='top')),
         # ('orig-ts-esm', lambda: OrigExploitESoftmax(epsilon=0.5, temperature=1.0, subset_mode='top')),
         # new
         ('ts',         lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUniformRandom())),
-        # ('ts-egr',      lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonGreedy(epsilon=0.75))),
-        # ('ts-sm',       lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestSoftmax(temperature=1.0))),
-        # ('ts-esm',      lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonSoftmax(epsilon=0.75, temperature=1.0))),
+        # ('ts-gr',      lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestGreedy())),
+        ('ts-egr_0.7',      lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonGreedy(epsilon=0.7))),
+        ('ts-sm_1.0',       lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestSoftmax(temperature=1.0))),
+        ('ts-esm_0.7-1.0',      lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonSoftmax(epsilon=0.7, temperature=1.0))),
         # ('ts-ucb-0.1',  lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=0.1))),
         # ('ts-ucb-0.5',  lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=0.5))),
-        ('ts-ucb-1.0', lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=1.0))),
+        ('ts-ucb_1.0', lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=1.0))),
         # ('ts-ucb-2.0',  lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=1.0))),
-        # ('ts-eucb',     lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonUcb(epsilon=0.5, c=1.0))),
+        # ('ts-eucb',     lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonUcb(epsilon=0.75, c=1.0))),
     ]
     k = len(exploiters)
 
@@ -198,15 +201,18 @@ def run_dual_test():
 
             print_results(i, options['repeats'])
 
-
     scores, converge_times, scores_per_steps = np.array(scores), np.array(converge_times), np.array(scores_per_steps)
-    fig.show()
 
-    # fig, ((ax,),) = make_subplots(1, 1)
-    # for (name, _), score_per_step in zip(exploiters, scores_per_steps):
-    #     ax.plot(score_per_step, label=f'{name}')
-    # ax.legend()
-    # fig.show()
+    if options['repeats'] <= 10:
+        # theta0 vs theta1
+        fig.show()
+
+    # scores
+    fig, ((ax,),) = make_subplots(1, 1)
+    for (name, _), score_per_step in zip(exploiters, scores_per_steps):
+        ax.plot(score_per_step, label=f'{name}')
+    ax.legend()
+    fig.show()
 
 
 if __name__ == '__main__':

@@ -122,8 +122,6 @@ class ExperimentArgs(Attrs):
     strategy_ts_ratio_top:    float           = field(default=0.20,        cast=flt_rng(0.0, 1.0))                   # used
     strategy_ts_ratio_bottom: float           = field(default=0.20,        cast=flt_rng(0.0, 1.0))                   # used
     strategy_tt_confidence:   float           = field(default=0.95,        cast=flt_rng(0.0, 1.0))                   # used
-    # TRACKER
-    tracker_converge_score:   float           = field(required=True)                                                    # used
     # EXTRA
     debug:                    bool            = field(default=False)                                                   # used
     # COMET
@@ -153,6 +151,24 @@ class ExperimentArgs(Attrs):
             opts = {k: v for k, v in opts.items() if not k.startswith('strategy_') or k in self._used_strategy_fields}
             opts = {k: v for k, v in opts.items() if not k.startswith('cnn_') or k in self._used_cnn_fields}
         return opts
+
+    # >>> COMPUTED VARIABLES <<< #
+
+    @property
+    def pbt_exploit_copies_h(self):
+        return self.experiment_type != 'toy'
+
+    @property
+    def tracker_converge_score(self):
+        return 1.18 if self.experiment_type == 'toy' else 99.2
+
+    def get_dict_computed(self):
+        return dict(
+            pbt_exploit_copies_h=self.pbt_exploit_copies_h,
+            tracker_converge_score=self.tracker_converge_score,
+        )
+
+    # >>> FACTORY FUNCTIONS <<< #
 
     def make_suggest(self) -> 'ISuggest':
         u = self._use_suggest_field
@@ -230,6 +246,8 @@ class ExperimentArgs(Attrs):
                 warn_exploit_self=True,
             )
         )
+
+    # >>> EXPERIMENT RUNNERS <<< #
 
     def do_training_run(self, seed=_NONE):
         util.seed(self.experiment_seed if (seed is _NONE) else seed)
