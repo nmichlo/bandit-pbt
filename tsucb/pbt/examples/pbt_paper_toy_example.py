@@ -3,12 +3,10 @@ import time
 from typing import NamedTuple
 import numpy as np
 import matplotlib.pyplot as plt
-from tqdm import tqdm
 
 from tsucb.helper import util
 from tsucb.pbt.strategies import *
 from tsucb.pbt.pbt import Member, Population
-import scipy.stats
 
 
 # ========================================================================= #
@@ -78,14 +76,14 @@ def make_subplots(h, w, figsize=None):
 
 def plot_performance(ax, population, steps, title):
     for member, color in zip(population, 'brgcmyk'):
-        vals = [step.p for step in member]
+        vals = [step.p for step in member.history]
         ax.plot(vals, color=color, lw=0.7)
     ax.axhline(y=1.2, linestyle='dotted', color='k')
     ax.set(xlim=[0, steps-1], ylim=[-0.5, 1.31], title=title, xlabel='Step', ylabel='Q')
 
 def plot_theta(ax, population, steps, title):
     for member, color in zip(population, 'brgcmyk'):
-        steps = [step for step in member if step.result]
+        steps = [step for step in member.history if step.result]
         x, y = np.array([step.result['theta'][0] for step in steps]), np.array([step.result['theta'][1] for step in steps])
         jumps = np.where([step.exploit_id is not None for step in steps])[0]
         x, y = np.insert(x, jumps, np.nan), np.insert(y, jumps, np.nan)
@@ -109,7 +107,7 @@ def make_plot(ax_col, options, exploiter, steps=200, exploit=True, explore=True,
         show_progress=False,
         randomize_order=True,
         step_after_explore=True,
-        print_scores=False
+        print_scores=True
     )
     t1 = time.time()
 
@@ -121,8 +119,8 @@ def make_plot(ax_col, options, exploiter, steps=200, exploit=True, explore=True,
 
     score = np.max(population.scores)
 
-    # plot_theta(ax_col[0], population, steps=steps, title=title)
-    # plot_performance(ax_col[1], population, steps=steps, title=title)
+    plot_theta(ax_col[0], population, steps=steps, title=title)
+    plot_performance(ax_col[1], population, steps=steps, title=title)
     return score, time_to_converge, scores.max(axis=0), len(population), t1 - t0
 
 
@@ -183,7 +181,7 @@ def run_dual_test():
             results = []  # [(score, converge_time, score_seq, pop_len)]
             for name, make_exploiter in exploiters:
                 exploiter = make_exploiter()
-                result = make_plot(axs[:, 0], options, exploiter=exploiter,  steps=options["steps"], exploit=True, explore=True, title=f'PBT {name}')
+                result = make_plot(axs[:, 0], options, exploiter=exploiter,  steps=options["steps"], title=f'PBT {name}')
                 results.append(result)
             r_scores, r_conv_time, r_score_seq, r_pop_sizes, t_times = zip(*results)
 
