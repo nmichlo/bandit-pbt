@@ -64,6 +64,9 @@ class _SuggestRandomGreedy(ISuggest):
         else:
             return filtered[np.argmax([m.score for m in filtered])]
 
+class SuggestGreedy(ISuggest):
+    def suggest(self, filtered: List['IMember']) -> IMember:
+        return filtered[np.argmax([m.score for m in filtered])]
 
 class SuggestUniformRandom(ISuggest):
     def suggest(self, filtered: List['IMember']) -> IMember:
