@@ -182,9 +182,10 @@ class Population(IPopulation):
         itr = tqdm(range(n), 'steps', disable=os.environ.get("DISABLE_TQDM", False)) if show_progress else range(n)
         recently_explored = dict()
 
-        # TODO: loops should be swapped for async operations
-        #       - original paper describes unsyncronised operations, so members can
-        #         exploit explore at any time if the conditions are met.
+        # LOOP: STEPS
+        # - original paper describes unsyncronised operations, so members can
+        #   exploit explore at any time if the conditions are met.
+        #   we attempt to replicate this by randomising order of operations.
         for i in itr:
             # partial async simulation with members not finishing in the same order.
             shuffled_members = shuffled(self.members, enabled=randomize_order)

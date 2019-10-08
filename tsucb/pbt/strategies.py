@@ -195,13 +195,14 @@ class ExploitStrategyTTestSelection(IExploitStrategy):
         raise NotImplementedError('Implement Me')
 
 class ExploitStrategyTruncationSelection(IExploitStrategy):
-    def __init__(self, bottom_ratio=0.2, top_ratio=0.2):
+    def __init__(self, bottom_ratio=0.2, top_ratio=0.2, limit_exploits=False):
         assert 0 <= bottom_ratio <= 1
         assert 0 <= top_ratio <= 1
         self._bottom_ratio = bottom_ratio
         self._top_ratio = top_ratio
         # assumes that block is always called before filter.
         self._temp_sorted = None
+        self._limit_exploits = limit_exploits
         # RESET EVERY POPULATION STEP
         self._exploited_count = 0
 
@@ -223,7 +224,7 @@ class ExploitStrategyTruncationSelection(IExploitStrategy):
         idx_low = max(1, int(len(population) * self._bottom_ratio))
 
         # dont exploit more than the allowed number each step of the population.
-        if self._exploited_count >= idx_low:
+        if self._limit_exploits and self._exploited_count >= idx_low:
             return True
 
         members = sorted_random_ties(population, key=lambda m: m.score)
