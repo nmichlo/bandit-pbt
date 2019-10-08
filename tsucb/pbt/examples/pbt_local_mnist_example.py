@@ -107,9 +107,9 @@ class MemberTorch(Member):
         self._config = config
         self._trainable = TorchTrainable(deepcopy(config), share_id=self.population_id)
 
-    def _save_theta(self, id):
-        CHECKPOINT_MAP[id] = os.path.join(CHECKPOINT_DIR, f'checkpoint_{id}.dat')
-        self._trainable.save(CHECKPOINT_MAP[id])
+    def _save_theta(self):
+        CHECKPOINT_MAP[self.id] = os.path.join(CHECKPOINT_DIR, f'checkpoint_{self.id}.dat')
+        self._trainable.save(CHECKPOINT_MAP[self.id])
 
     def _load_theta(self, id):
         self._trainable.restore(CHECKPOINT_MAP[id])

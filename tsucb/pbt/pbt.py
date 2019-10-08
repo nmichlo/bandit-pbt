@@ -59,7 +59,11 @@ class IPopulation(abc.ABC):
         return self.members.__contains__(member)
 
     @property
-    def debug(self):
+    def debug(self) -> bool:
+        raise NotImplementedError()
+
+    @property
+    def exploit_copies_h(self) -> bool:
         raise NotImplementedError()
 
     @property
@@ -137,6 +141,7 @@ class Population(IPopulation):
         self._exploiter._set_used()
 
         self._debug = member_options['debug']
+        self._exploit_copies_h = member_options['exploit_copies_h']
 
         # unique population identifier
         self._id = str(uuid4())
@@ -156,8 +161,12 @@ class Population(IPopulation):
         return self._members[:]
 
     @property
-    def debug(self):
+    def debug(self) -> bool:
         return self._debug
+
+    @property
+    def exploit_copies_h(self) -> bool:
+        return self._exploit_copies_h
 
     @property
     def member_options(self) -> dict:
@@ -166,6 +175,39 @@ class Population(IPopulation):
     @property
     def exploiter(self) -> 'IExploiter':
         return self._exploiter
+
+    def train_old(self, n=None, exploit=True, explore=True, show_progress=True, randomize_order=True, step_after_explore=True, print_scores=True) -> 'IPopulation':
+        # KEPT FOR REFERENCE
+
+        for i in range(n):
+            for idx, member in enumerate(self.members):  # should be async
+
+                # one step of optimisation using hyper-parameters h
+                result = member.step(options=self.member_options)
+                # current model evaluation
+                member.eval(options=self.member_options)
+                member.push_history(result)
+
+                if member.is_ready(self):
+                    do_explore = explore
+                    if exploit:
+                        print('\nEXPLOTING')
+                        # replace the member using the rest of population to find a better solution
+                        exploited = member.exploit(self)
+                        print(f'EXPLOITED {exploited}')
+                        do_explore = do_explore and (exploited is not None)
+                    if do_explore:
+                        # produce new hyper-parameters h and update member
+                        member.explore(self)
+                        # new model evaluation
+                        member.eval(options=self.member_options)
+
+                # update population
+                # TODO: needed for async operations
+                # self._update(idx, member)
+
+        return self
+
 
     def train(self, n=None, exploit=True, explore=True, show_progress=True, randomize_order=True, step_after_explore=True, print_scores=True) -> 'IPopulation':
         """
@@ -198,10 +240,15 @@ class Population(IPopulation):
                     itr.set_description(f'step {i+1}/{n} (member {j+1}/{len(self.members)}) [{max_score}]')
 
                 if step_after_explore and (j in recently_explored):
+                    # member already stepped due to eager stepping during
+                    # exploitation and exploration to better synthesise asynchronous PBT
                     member.push_history(recently_explored[j])
                 else:
+                    # one step of optimisation using hyper-parameters h
                     result = self._step(member)
+                    # current model evaluation
                     self._eval(member)
+                    # append to history
                     member.push_history(result)
 
             if step_after_explore:
@@ -376,7 +423,7 @@ class IMember(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def _save_theta(self, id):
+    def _save_theta(self):
         pass
 
     @abc.abstractmethod
@@ -517,7 +564,7 @@ class Member(IMember):
 
     def __str__(self):
         """ Get the string representation of the member """
-        return f"{self.__class__.__name__}{{{self.steps} : {self.score} : {self.copy_h()}}}"
+        return f"{self.__class__.__name__}{{{self.steps} : {self.copy_h()}}}"
 
     @property
     def history(self) -> List['HistoryItem']:
@@ -536,7 +583,7 @@ class Member(IMember):
     def step(self, options: dict):
         # update the parameters of the member.
         results = self._step(options)
-        self._save_theta(self.id)
+        self._save_theta()
         # indicate that the score score should be recalculated.
         self._recal = True
         # increment step counter
@@ -571,6 +618,10 @@ class Member(IMember):
             tqdm.write(f'[READY]: {self.id} {ready} {self.score}')
         return ready
 
+    def _reset_ready(self):
+        # reset counter
+        self._t_last_explore = self._t
+
     def exploit(self, population: 'IPopulation') -> Optional['IMember']:
         member = population.exploiter.exploit(population, self)
         # Skip exploit if None
@@ -581,23 +632,32 @@ class Member(IMember):
             if population.member_options.get('warn_exploit_self', True):
                 tqdm.write(f"[WARNING]: {self.id} Exploited itself - [{population.exploiter}]")
             return None
-        # Copy parameters & hyperparameters
+        # Copy parameters
         self._load_theta(member.id)
-        self._save_theta(self.id)
-        self._set_h(member.copy_h())
-        self._recal = True
-        # Success
+        self._save_theta()
+        # The toy example does not copy hyper-parameters
+        if population.exploit_copies_h:
+            self._set_h(member.copy_h())
+        # assumes that the score is independent of the hyper-parameters
+        self._p = member.score
+        self._recal = False
+        # reset ready
+        self._reset_ready()
+        # success
         return member
 
     def explore(self, population: 'IPopulation') -> bool:
         exploring_h = self._explored_h(population)
+        if population.debug:
+            tqdm.write(f'[H]: OLD={self.copy_h()}\n     NEW={exploring_h}')
         assert exploring_h is not None, "Explore values are None, problem with explorer?"
         # Set hyper-parameters
         self._set_h(exploring_h)
         self._recal = True
-        self._t_last_explore = self._t
+        # reset ready
+        self._reset_ready()
         # TODO: should the history be updated here?
-        # Success
+        # success
         return True
 
     def _is_ready(self, population: 'IPopulation', steps: int, steps_since_explore: int) -> bool:

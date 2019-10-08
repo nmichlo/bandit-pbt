@@ -37,8 +37,8 @@ class ToyMember(Member):
         self._theta = theta
         self._h = h
 
-    def _save_theta(self, id):
-        _THETA_STORE[id] = np.copy(self._theta)
+    def _save_theta(self):
+        _THETA_STORE[self.id] = np.copy(self._theta)
     def _load_theta(self, id):
         self._theta = np.copy(_THETA_STORE[id])
 
@@ -52,6 +52,8 @@ class ToyMember(Member):
         return ToyHyperParams(
             np.clip(np.random.normal(self._h.coef, s), 0, 1),
             np.clip(np.random.normal(self._h.alpha, s), 0, 1),
+            # self._h.coef + np.random.randn(*self._h.coef.shape) * s,
+            # abs(self._h.alpha + np.random.randn() * s),
         )
 
     @property
@@ -64,6 +66,7 @@ class ToyMember(Member):
         return {'theta': np.copy(self._theta)}
     def _eval(self, options: dict) -> float:
         return 1.2 - np.dot(self._theta, self._theta)
+
 
 # ============================================================================ #
 # PLOTTING                                                                     #
@@ -85,29 +88,29 @@ def plot_theta(ax, population, steps, title):
     for member, color in zip(population, 'brgcmyk'):
         steps = [step for step in member.history if step.result]
         x, y = np.array([step.result['theta'][0] for step in steps]), np.array([step.result['theta'][1] for step in steps])
-        jumps = np.where([step.exploit_id is not None for step in steps])[0]
+        jumps = np.where([step.exploit_id is not None for step in steps])[0] + 1
         x, y = np.insert(x, jumps, np.nan), np.insert(y, jumps, np.nan)
         ax.plot(x, y, color=color, lw=0.5, zorder=1)
         ax.scatter(x, y, color=color, s=1, zorder=2)
 
     ax.set(xlim=[-0.1, 1], ylim=[-0.1, 1], title=title, xlabel='theta0', ylabel='theta1')
 
-def make_plot(ax_col, options, exploiter, steps=200, exploit=True, explore=True, title=None):
+def make_plot(ax_col, options, exploiter, steps=200, title=None):
     population = Population([
-        # ToyMember(ToyHyperParams(np.array([1., .0]), 0.01), np.array([.9, .9])),
-        # ToyMember(ToyHyperParams(np.array([.0, 1.]), 0.01), np.array([.9, .9])),
-        *[ToyMember(h=ToyHyperParams(np.random.rand(2) * 0.5, 0.01), theta=np.array([.9, .9])) for i in range(options['population_size'])],
+        ToyMember(ToyHyperParams(np.array([1., .0]), 0.01), np.array([.9, .9])),
+        ToyMember(ToyHyperParams(np.array([.0, 1.]), 0.01), np.array([.9, .9])),
+        # *[ToyMember(h=ToyHyperParams(np.random.rand(2) * 0.5, 0.01), theta=np.array([.9, .9])) for i in range(options['population_size'])],
         # *[ToyMember(ToyHyperParams(np.array([np.random.rand()*0.5, 1.]), 0.01), np.array([.9, .9])) for i in range(3)],
     ], exploiter=exploiter, member_options=options)
 
     t0 = time.time()
     population.train(
         steps,
-        exploit=exploit, explore=explore,
+        exploit=True, explore=True,
         show_progress=False,
         randomize_order=True,
         step_after_explore=True,
-        print_scores=True
+        print_scores=options['print_scores']
     )
     t1 = time.time()
 
@@ -130,40 +133,41 @@ def make_plot(ax_col, options, exploiter, steps=200, exploit=True, explore=True,
 
 
 def run_dual_test():
-
     options = {
-        "repeats": 50,
-        "steps": 10,
-
-        "steps_till_ready": 2,
-        "exploration_scale": 0.1,
-        "population_size": 50,
+        "steps": 100,
+        "steps_till_ready": 10,
 
         "debug": False,
         "warn_exploit_self": True,
+        "exploit_copies_h": False,
+
+        # custom
+        "repeats": 1,
+        "exploration_scale": 0.05,
+        "population_size": 2,
+        "print_scores": False
     }
 
     make_exploit_strategy = lambda: ExploitStrategyTruncationSelection()
-    # make_exploit_strategy = lambda: ExploitStrategyBinaryTournament()
 
     # EXPLOITERS
     exploiters = [
         # orig
-        # ('orig-ts', lambda: OrigExploitTruncationSelection()),
-        # ('orig-ts-eg', lambda: OrigExploitEGreedy(epsilon=0.5, subset_mode='top')),
+        ('orig-ts',     lambda: OrigExploitTruncationSelection()),
+        # ('orig-ts-eg',  lambda: OrigExploitEGreedy(epsilon=0.5, subset_mode='top')),
         # ('orig-ts-ucb', lambda: OrigExploitUcb(c=1.0, subset_mode='top', normalise_mode='subset', incr_mode='exploited')),
-        # ('orig-ts-sm', lambda: OrigExploitSoftmax(temperature=1.0, subset_mode='top')),
+        # ('orig-ts-sm',  lambda: OrigExploitSoftmax(temperature=1.0, subset_mode='top')),
         # ('orig-ts-esm', lambda: OrigExploitESoftmax(epsilon=0.5, temperature=1.0, subset_mode='top')),
         # new
         ('ts',         lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUniformRandom())),
-        ('ts-egr',     lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonGreedy(epsilon=0.75))),
-        ('ts-sm',      lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestSoftmax(temperature=1.0))),
-        # ('ts-esm',     lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonSoftmax(epsilon=0.75, temperature=1.0))),
-        # ('ts-ucb-0.1',     lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=0.1))),
-        # ('ts-ucb-0.5',     lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=0.5))),
-        ('ts-ucb-1.0',     lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=1.0))),
-        # ('ts-ucb-2.0',     lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=2.0))),
-        # ('ts-eucb',    lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonUcb(epsilon=0.5, c=1.0))),
+        # ('ts-egr',      lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonGreedy(epsilon=0.75))),
+        # ('ts-sm',       lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestSoftmax(temperature=1.0))),
+        # ('ts-esm',      lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonSoftmax(epsilon=0.75, temperature=1.0))),
+        # ('ts-ucb-0.1',  lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=0.1))),
+        # ('ts-ucb-0.5',  lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=0.5))),
+        ('ts-ucb-1.0', lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=1.0))),
+        # ('ts-ucb-2.0',  lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=1.0))),
+        # ('ts-eucb',     lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonUcb(epsilon=0.5, c=1.0))),
     ]
     k = len(exploiters)
 
@@ -198,11 +202,11 @@ def run_dual_test():
     scores, converge_times, scores_per_steps = np.array(scores), np.array(converge_times), np.array(scores_per_steps)
     fig.show()
 
-    fig, ((ax,),) = make_subplots(1, 1)
-    for (name, _), score_per_step in zip(exploiters, scores_per_steps):
-        ax.plot(score_per_step, label=f'{name}')
-    ax.legend()
-    fig.show()
+    # fig, ((ax,),) = make_subplots(1, 1)
+    # for (name, _), score_per_step in zip(exploiters, scores_per_steps):
+    #     ax.plot(score_per_step, label=f'{name}')
+    # ax.legend()
+    # fig.show()
 
 
 if __name__ == '__main__':
