@@ -215,12 +215,12 @@ class ExploitStrategyTruncationSelection(IExploitStrategy):
         # USE CACHED SORT RESULT
         members, self._temp_sorted = self._temp_sorted, None
         # Top % of the population
-        idx_hgh = int(len(population) * (1 - self._top_ratio))
+        idx_hgh = len(population) - max(1, int(len(population) * self._top_ratio))
         return members[idx_hgh:]
 
     def block(self, current: 'IMember', population: 'IPopulation'):
         # If the current agent is in the bottom % of the population
-        idx_low = int(len(population) * self._bottom_ratio)
+        idx_low = max(1, int(len(population) * self._bottom_ratio))
 
         # dont exploit more than the allowed number each step of the population.
         if self._exploited_count >= idx_low:
@@ -303,8 +303,8 @@ class OrigExploitTruncationSelection(Exploiter):
         self._top_ratio = top_ratio
 
     def exploit(self, population: 'IPopulation', member: 'IMember') -> Optional['IMember']:
-        idx_low = int(len(population) * self._bottom_ratio)
-        idx_hgh = int(len(population) * (1 - self._top_ratio))
+        idx_low = max(1, int(len(population) * self._bottom_ratio))
+        idx_hgh = len(population) - max(1, int(len(population) * self._top_ratio))
 
         # we rank all agents in the population by episodic reward (low to high)
         members = sorted_random_ties(population, key=lambda m: m.score)

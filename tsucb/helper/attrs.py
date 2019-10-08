@@ -36,11 +36,13 @@ from typeguard import check_type
 _NONE = object()
 
 class field(object):
-    def __init__(self, default, cast=None, choices=None):
+    def __init__(self, default=_NONE, cast=None, choices=None, required=False):
         self._default = default
         assert cast is None or callable(cast), 'cast must be callable'
         self._cast = cast
         self._choices = set(choices) if (choices is not None) else None
+        # extra info
+        self._required = required
         # Set Externally In _AttrMeta
         self._type: type = _NONE
         self._name: str = _NONE
@@ -50,6 +52,7 @@ class field(object):
         assert (self._type is not _NONE) and (self._name is not _NONE), 'This field is not part of an Attr class.'
         # DEFAULT
         if value is _NONE:
+            assert self._default is not _NONE, f'No default value specified for field: {self._name}'
             value = self._default
         # TYPE
         try:
@@ -99,6 +102,7 @@ class _AttrMeta(type):
         # ADD TO TYPE
         cls._fields_ = fields
         cls._fields_public_ = {k: v for k, v in fields.items() if not k.startswith('_')}
+        cls._fields_required_ = {k: v for k, v in cls._fields_public_.items() if v._required}
 
 class Attrs(object, metaclass=_AttrMeta):
     __is_base_attr_class = True
@@ -106,6 +110,9 @@ class Attrs(object, metaclass=_AttrMeta):
     def __init__(self, **kwargs):
         # CALL SUPER
         super().__init__()
+        # CHECK REQUIRED:
+        for k in self._fields_required_:
+            assert k in kwargs, f'field "{k}" is required'
         # CHECK KWARGS KEYS
         for k in kwargs:
             if k in self._fields_:
@@ -142,6 +149,7 @@ class Attrs(object, metaclass=_AttrMeta):
             else:
                 parser.add_argument(
                     flag,
+                    required=f._required,
                     type=f._cast if f._cast else (f._type if f._type is not _NONE else None),
                     default=f._default,
                     choices=f._choices,

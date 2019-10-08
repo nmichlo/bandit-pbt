@@ -123,7 +123,7 @@ class ExperimentArgs(Attrs):
     strategy_ts_ratio_bottom: float           = field(default=0.20,        cast=flt_rng(0.0, 1.0))                   # used
     strategy_tt_confidence:   float           = field(default=0.95,        cast=flt_rng(0.0, 1.0))                   # used
     # TRACKER
-    tracker_converge_score:   float           = field(default=None)                                                    # used
+    tracker_converge_score:   float           = field(required=True)                                                    # used
     # EXTRA
     debug:                    bool            = field(default=False)                                                   # used
     # COMET
@@ -193,9 +193,11 @@ class ExperimentArgs(Attrs):
     def make_member(self):
         if self.experiment_type == 'toy':
             from tsucb.pbt.examples.pbt_paper_toy_example import ToyMember, ToyHyperParams
+            # TOY MEMBER
             return ToyMember(h=ToyHyperParams(coef=np.random.rand(2) * 0.5, alpha=0.01), theta=np.array([.9, .9]))
         elif self.experiment_type == 'cnn':
             from tsucb.pbt.examples.pbt_local_mnist_example import MemberTorch, random_uniform, random_log_uniform
+            # CNN MEMBER
             u = self._use_cnn_field
             return MemberTorch(config=dict(
                 model='example', loss='NLLLoss', optimizer='SGD',
