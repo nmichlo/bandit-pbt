@@ -105,13 +105,14 @@ class ExperimentArgs(Attrs):
     # PBT
     pbt_print:                bool            = field(default=False)                                                   # used
     pbt_target_steps:         int             = field(default=10,          cast=int_rng(1, INF))                     # used
-    pbt_target_score:         Optional[float] = field(default=None)                                                    # used
     pbt_members:              int             = field(default=25,          cast=int_rng(1, INF))                     # used
     pbt_members_ready_after:  int             = field(default=2,           cast=int_rng(1, INF))                     # used
     pbt_exploit_strategy:     str             = field(default='ts',        cast=str.lower, choices=STRATEGY_CHOICES)   # used
     pbt_exploit_suggest:      str             = field(default='random',    cast=str.lower, choices=SUGGEST_CHOICES)    # used
     pbt_disable_exploit:      bool            = field(default=False)                                                   # used
     pbt_disable_explore:      bool            = field(default=False)                                                   # used
+    pbt_disable_eager_step:   bool            = field(default=False)                                                   # used
+    pbt_disable_random_order: bool            = field(default=False)                                                   # used
     # EXPLOITER - UCB
     suggest_ucb_incr_mode:    str             = field(default='exploited', cast=str.lower, choices=INCR_MODES)         # used
     suggest_ucb_c:            float           = field(default=1.00,        cast=flt_rng(0.0, 2.0))                   # used
@@ -217,17 +218,14 @@ class ExperimentArgs(Attrs):
     def make_members(self) -> List['IMember']:
         return [self.make_member() for _ in range(self.pbt_members)]
 
-    def make_population(self) -> 'IPopulation':
+    def make_population(self) -> 'Population':
         return Population(
             members=self.make_members(),
             exploiter=self.make_exploiter(),
-            options=dict(
+            member_options=dict(
                 steps_till_ready=self.pbt_members_ready_after,
-                steps=self.pbt_target_steps,
-                target_score=self.pbt_target_score,
                 debug=self.debug,
                 warn_exploit_self=True,
-                print_scores=self.pbt_print,
             )
         )
 
@@ -239,6 +237,10 @@ class ExperimentArgs(Attrs):
             n=self.pbt_target_steps,
             exploit=not self.pbt_disable_exploit,
             explore=not self.pbt_disable_explore,
+            show_progress=False,
+            randomize_order=not self.pbt_disable_random_order,
+            step_after_explore=not self.pbt_disable_eager_step,
+            print_scores=self.pbt_print,
         )
         return population
 

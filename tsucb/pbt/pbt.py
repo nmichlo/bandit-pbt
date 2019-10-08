@@ -44,7 +44,7 @@ class IPopulation(abc.ABC):
 
     @property
     def best(self) -> 'IMember':
-        return max(self.members, key=lambda m: m.eval(self.options))
+        return max(self.members, key=lambda m: m.eval(self.member_options))
 
     def __getitem__(self, item) -> 'IMember':
         return self.members.__getitem__(item)
@@ -88,10 +88,10 @@ class IPopulation(abc.ABC):
 
     @property
     @abc.abstractmethod
-    def options(self) -> dict:
+    def member_options(self) -> dict:
         """
         Used to pass data to IMembers.
-        :return: The ditionary of options set for the population.
+        :return: The ditionary of member_options set for the population.
         """
         pass
 
@@ -120,23 +120,23 @@ class IPopulation(abc.ABC):
 class Population(IPopulation):
     """
     Basic implementation of a Population, without providing any abstract methods.
-    Use the options to pass data to members.
+    Use the member_options to pass data to members.
     """
 
-    def __init__(self, members, exploiter, options=None):
+    def __init__(self, members, exploiter, member_options=None):
         self._members = members
         if len(members) < 1:
             raise RuntimeError('Population must have at least one member')
 
-        if options is None:
-            options = {}
-        self._options = options
+        if member_options is None:
+            member_options = {}
+        self._member_options = member_options
 
         assert isinstance(exploiter, IExploiter)
         self._exploiter = exploiter
         self._exploiter._set_used()
 
-        self._debug = options.get('debug', False)
+        self._debug = member_options['debug']
 
         # unique population identifier
         self._id = str(uuid4())
@@ -160,14 +160,14 @@ class Population(IPopulation):
         return self._debug
 
     @property
-    def options(self) -> dict:
-        return self._options
+    def member_options(self) -> dict:
+        return self._member_options
 
     @property
     def exploiter(self) -> 'IExploiter':
         return self._exploiter
 
-    def train(self, n=None, exploit=True, explore=True, show_progress=True, randomize_order=True) -> 'IPopulation':
+    def train(self, n=None, exploit=True, explore=True, show_progress=True, randomize_order=True, step_after_explore=True, print_scores=True) -> 'IPopulation':
         """
         Based on:
         + The original paper
@@ -179,10 +179,8 @@ class Population(IPopulation):
         :return: The member with the best score/score after training.
         """
 
-        if n is None:
-            n = self.options.get('steps', 100)
-
         itr = tqdm(range(n), 'steps', disable=os.environ.get("DISABLE_TQDM", False)) if show_progress else range(n)
+        recently_explored = dict()
 
         # TODO: loops should be swapped for async operations
         #       - original paper describes unsyncronised operations, so members can
@@ -198,26 +196,28 @@ class Population(IPopulation):
                 if show_progress:
                     itr.set_description(f'step {i+1}/{n} (member {j+1}/{len(self.members)}) [{max_score}]')
 
-                # one step of optimisation using hyper-parameters h
-                result = self._step(member)
-                # current model evaluation
-                self._eval(member)
+                if step_after_explore and (j in recently_explored):
+                    member.push_history(recently_explored[j])
+                else:
+                    result = self._step(member)
+                    self._eval(member)
+                    member.push_history(result)
 
-                # push history
-                member.push_history(result)
+            if step_after_explore:
+                recently_explored.clear()
 
-            # TODO: is separating this better?
             # EXPLOIT / EXPLORE
             for j, member in enumerate(shuffled_members):  # should be async
                 if show_progress:
                     itr.set_description(f'step {i + 1}/{n} (exploiting+exploring)')
 
-                # READY?
+                # >>> READY <<< #
                 if self._is_ready(member):
                     do_explore = explore
 
-                    # EXPLOIT
+                    # >>> EXPLOIT <<< #
                     if exploit:
+                        # TODO: sometimes exploit may use recently exploited members for exploitation.
                         if self.debug:
                             tqdm.write(f'[EXPLOITING]: {member.id}')
                         # replace the member using the rest of population to find a better solution
@@ -228,53 +228,47 @@ class Population(IPopulation):
                         # only explore if we exploited
                         do_explore = do_explore and (exploited_member is not None)
 
-                    # EXPLORE
+                    # >>> EXPLORE <<< #
                     if do_explore:
                         if self.debug:
                             tqdm.write(f'[EXPLORING]: {member.id} {member.score}')
                         # produce new hyper-parameters h and update member
                         self._explore(member)
                         # new model evaluation
-                        self._eval(member)
+
+                        if step_after_explore:
+                            # Because we are not running asyncronously,
+                            # exploitation may be skewed due to untested members
+                            result = self._step(member)
+                            self._eval(member)
+                            recently_explored[j] = result
+                        else:
+                            self._eval(member)
+
 
             # STEP - END
             self._exploiter._population_stepped()
 
             # STEP - LOGGING
-            if self._options.get('print_scores', False) or self._debug:
+            if print_scores or self.debug:
                 tqdm.write(f'[RESULTS]: step={i+1} max_score={max(m.history[-1].p for m in self)} min_score={min(m.history[-1].p for m in self)}')
                 for m in sorted(self.members, key=lambda m: (m.history[-1].p, m.id)):
                     tqdm.write(f'  {m.id}: {m.history[-1].p:5f}{"" if m.history[-1].exploit_id is None else f" <- {m.history[-1].exploit_id}"}')
                 tqdm.write('')
 
-            # STEP CALLBACK
-            if callable(self._options.get('step_callback', None)):
-                self._options['step_callback'](self, i)
-
-            # EARLY STOP
-            if self._options.get('target_score', None) is not None:
-                max_score, target_score = max(m.score for m in self), self._options['target_score']
-                if max_score >= target_score:
-                    tqdm.write(f'[EARLY STOP]: (max score) {max_score} >= {target_score} (target score)')
-                    break
-
         # TRAINING CLEANUP
         for m in self.members:
             m.cleanup()
 
-        # END CALLBACK
-        if callable(self._options.get('end_callback', None)):
-            self._options['end_callback'](self)
-
         return self
 
     def _step(self, member) -> object:
-        result = member.step(self.options)
+        result = member.step(self.member_options)
         self.exploiter._member_on_step(member)
         return result
 
     def _eval(self, member) -> NoReturn:
-        member.eval(options=self.options)
+        member.eval(options=self.member_options)
 
     def _is_ready(self, member) -> bool:
         return member.is_ready(self)
@@ -441,7 +435,7 @@ class IMember(abc.ABC):
         Perform one step or batch of the optimisation process on the underlying
         machine learning algorithm. The values of this members parameters (theta)
         should be updated, for example via gradient decent.
-        :param options: A dictionary of options set for the population, values not guaranteed to exist.
+        :param options: A dictionary of member_options set for the population, values not guaranteed to exist.
         """
         pass
 
@@ -449,7 +443,7 @@ class IMember(abc.ABC):
     def eval(self, options: dict) -> float:
         """
         Evaluate the score of the underlying machine learning algorithm.
-        :param options: A dictionary of options set for the population, values not guaranteed to exist.
+        :param options: A dictionary of member_options set for the population, values not guaranteed to exist.
         :return: A float value indicating the current score.
         """
         pass
@@ -583,7 +577,7 @@ class Member(IMember):
             return None
         # Skip exploit is the Same
         if member is self:
-            if population._options.get('warn_exploit_self', False):
+            if population.member_options.get('warn_exploit_self', True):
                 tqdm.write(f"[WARNING]: {self.id} Exploited itself - [{population.exploiter}]")
             return None
         # Copy parameters & hyperparameters
@@ -612,12 +606,12 @@ class Member(IMember):
         :param steps_since_explore: The number of steps since the last hyper-parameter change.
         :return: True if this member is ready for the exploit/explore stage.
         """
-        return steps_since_explore >= population.options['steps_till_ready']
+        return steps_since_explore >= population.member_options['steps_till_ready']
 
     @abc.abstractmethod
     def _step(self, options: dict) -> object:
         """
-        :param options: A dictionary of options set for the population, values not guaranteed to exist.
+        :param options: A dictionary of member_options set for the population, values not guaranteed to exist.
         :return: Results generated by the step, to be saved in the history
         """
         pass
@@ -625,7 +619,7 @@ class Member(IMember):
     @abc.abstractmethod
     def _eval(self, options: dict) -> float:
         """
-        :param options: A dictionary of options set for the population, values not guaranteed to exist.
+        :param options: A dictionary of member_options set for the population, values not guaranteed to exist.
         :return: A float value indicating the current score, used by self.eval().
         """
         pass

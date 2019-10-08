@@ -60,7 +60,7 @@ def _create_optimizer(name, model_params, **kwargs) -> torch.optim.Optimizer:
         raise KeyError(f'Unsupported optimizer: "{name}" Choose one of: [{", ".join(optimizers.keys())}]')
 
 def _create_dataset(name, **kwargs) -> Tuple[torchvision.datasets.VisionDataset, torchvision.datasets.VisionDataset]:
-    allowed = { # datasets with the same options. # 'PhotoTour', 'USPS',
+    allowed = { # datasets with the same member_options. # 'PhotoTour', 'USPS',
         'CIFAR10',                                             # 32x32x3 # 10
         'CIFAR100',                                            # 32x32x3 # 100
         'MNIST', 'EMNIST', 'FashionMNIST', 'KMNIST', 'QMNIST', # 28x28x1 # 10

@@ -198,9 +198,8 @@ def main():
         )
 
     population_options = dict(
-        members=10,
-        steps_till_ready=1,
-        steps=int(epochs*epoch_divisions),  # 5 epochs * steps per epoch
+        members=15,
+        steps_till_ready=2,
         debug=False,
         warn_exploit_self=True,
         print_scores=True,
@@ -210,7 +209,7 @@ def main():
         return Population(
             members=[MemberTorch(make_member_options()) for _ in range(population_options['members'])],
             exploiter=exploit_maker(),
-            options=population_options
+            member_options=population_options
         )
 
     tqdm.write(f'BATCH_SIZE={batch_size}')
@@ -219,25 +218,37 @@ def main():
     tqdm.write(f'EPOCH_DIVISIONS={epoch_divisions}')
     tqdm.write(f'IMAGES_PER_DIV={total_images//epoch_divisions}')
 
-    util.print_separator('TS')
-    util.seed(42)
-    make_population(lambda: GeneralisedExploiter(ExploitStrategyTruncationSelection(), SuggestUniformRandom())).train()
+    def train(pop: Population, eager=True):
+        pop.train(
+            n=int(epochs*epoch_divisions),
+            print_scores=True,
+            randomize_order=True,
+            step_after_explore=eager
+        )
 
-    util.print_separator('UCB')
+    util.print_separator('TS - Eager')
     util.seed(42)
-    make_population(lambda: GeneralisedExploiter(ExploitStrategyTruncationSelection(), SuggestUcb())).train()
+    train(make_population(lambda: GeneralisedExploiter(ExploitStrategyTruncationSelection(), SuggestUniformRandom())), eager=True)
 
-    util.print_separator('SM')
+    util.print_separator('TS - Non-Eager')
     util.seed(42)
-    make_population(lambda: GeneralisedExploiter(ExploitStrategyTruncationSelection(), SuggestSoftmax())).train()
+    train(make_population(lambda: GeneralisedExploiter(ExploitStrategyTruncationSelection(), SuggestUniformRandom())), eager=False)
 
-    util.print_separator('EG')
-    util.seed(42)
-    make_population(lambda: GeneralisedExploiter(ExploitStrategyTruncationSelection(), SuggestEpsilonGreedy(epsilon=0.75))).train()
-
-    util.print_separator('ES')
-    util.seed(42)
-    make_population(lambda: GeneralisedExploiter(ExploitStrategyTruncationSelection(), SuggestEpsilonSoftmax(epsilon=0.75))).train()
+    # util.print_separator('UCB')
+    # util.seed(42)
+    # train(make_population(lambda: GeneralisedExploiter(ExploitStrategyTruncationSelection(), SuggestUcb())), eager=True)
+    #
+    # util.print_separator('SM')
+    # util.seed(42)
+    # train(make_population(lambda: GeneralisedExploiter(ExploitStrategyTruncationSelection(), SuggestSoftmax())), eager=True)
+    #
+    # util.print_separator('EG')
+    # util.seed(42)
+    # train(make_population(lambda: GeneralisedExploiter(ExploitStrategyTruncationSelection(), SuggestEpsilonGreedy(epsilon=0.75))), eager=True)
+    #
+    # util.print_separator('ES')
+    # util.seed(42)
+    # train(make_population(lambda: GeneralisedExploiter(ExploitStrategyTruncationSelection(), SuggestEpsilonSoftmax(epsilon=0.75))), eager=True)
 
 if __name__ == '__main__':
     main()

@@ -76,7 +76,7 @@ def run_experiment(args: UcbExperimentArgs):
         # MEMBERS
         population = Population([
             *[ToyMember(h=ToyHyperParams(np.random.rand(2) * 0.5, 0.01), theta=np.array([.9, .9])) for i in range(args.pbt_members)],
-        ], exploiter=args.make_exploiter(), options={})
+        ], exploiter=args.make_exploiter(), member_options={})
         # TRAIN
         population.train(args.pbt_steps, exploit=args.pbt_do_exploit, explore=args.pbt_do_explore, show_progress=False)
 

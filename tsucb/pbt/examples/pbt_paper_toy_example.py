@@ -29,7 +29,7 @@ _THETA_STORE = {}
 
 class ToyMember(Member):
     """
-    options provided:
+    member_options provided:
     - steps_till_ready=4
     - learning_rate=0.01
     - exploration_scale=0.1
@@ -50,7 +50,7 @@ class ToyMember(Member):
         self._h = h
     def _explored_h(self, population: 'Population') -> ToyHyperParams:
         """perturb hyper-parameters with noise from a normal distribution"""
-        s = population.options.get('exploration_scale', 0.1)
+        s = population.member_options.get('exploration_scale', 0.1)
         return ToyHyperParams(
             np.clip(np.random.normal(self._h.coef, s), 0, 1),
             np.clip(np.random.normal(self._h.alpha, s), 0, 1),
@@ -100,10 +100,17 @@ def make_plot(ax_col, options, exploiter, steps=200, exploit=True, explore=True,
         # ToyMember(ToyHyperParams(np.array([.0, 1.]), 0.01), np.array([.9, .9])),
         *[ToyMember(h=ToyHyperParams(np.random.rand(2) * 0.5, 0.01), theta=np.array([.9, .9])) for i in range(options['population_size'])],
         # *[ToyMember(ToyHyperParams(np.array([np.random.rand()*0.5, 1.]), 0.01), np.array([.9, .9])) for i in range(3)],
-    ], exploiter=exploiter, options=options)
+    ], exploiter=exploiter, member_options=options)
 
     t0 = time.time()
-    population.train(steps, exploit=exploit, explore=explore, show_progress=False)
+    population.train(
+        steps,
+        exploit=exploit, explore=explore,
+        show_progress=False,
+        randomize_order=True,
+        step_after_explore=True,
+        print_scores=False
+    )
     t1 = time.time()
 
     # Calculates the score as the index of the first occurrence greater than 1.18
@@ -127,17 +134,15 @@ def make_plot(ax_col, options, exploiter, steps=200, exploit=True, explore=True,
 def run_dual_test():
 
     options = {
-        "repeats": 1,
-
+        "repeats": 50,
         "steps": 10,
-        "target_score": 99.2,
 
         "steps_till_ready": 2,
         "exploration_scale": 0.1,
-        "population_size": 10,
+        "population_size": 50,
 
+        "debug": False,
         "warn_exploit_self": True,
-        "print_scores": True,
     }
 
     make_exploit_strategy = lambda: ExploitStrategyTruncationSelection()
@@ -152,9 +157,9 @@ def run_dual_test():
         # ('orig-ts-sm', lambda: OrigExploitSoftmax(temperature=1.0, subset_mode='top')),
         # ('orig-ts-esm', lambda: OrigExploitESoftmax(epsilon=0.5, temperature=1.0, subset_mode='top')),
         # new
-        # ('ts',         lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUniformRandom())),
-        # ('ts-egr',     lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonGreedy(epsilon=0.75))),
-        # ('ts-sm',      lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestSoftmax(temperature=1.0))),
+        ('ts',         lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUniformRandom())),
+        ('ts-egr',     lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonGreedy(epsilon=0.75))),
+        ('ts-sm',      lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestSoftmax(temperature=1.0))),
         # ('ts-esm',     lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonSoftmax(epsilon=0.75, temperature=1.0))),
         # ('ts-ucb-0.1',     lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=0.1))),
         # ('ts-ucb-0.5',     lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=0.5))),
