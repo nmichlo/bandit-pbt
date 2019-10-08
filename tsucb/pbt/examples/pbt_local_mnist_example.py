@@ -198,7 +198,7 @@ def main():
         )
 
     population_options = dict(
-        members=30,
+        members=10,
         steps_till_ready=1,
         steps=int(epochs*epoch_divisions),  # 5 epochs * steps per epoch
         debug=False,

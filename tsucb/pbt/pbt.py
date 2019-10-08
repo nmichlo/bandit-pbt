@@ -139,7 +139,7 @@ class Population(IPopulation):
         self._debug = options.get('debug', False)
 
         # unique population identifier
-        self._id = uuid4()
+        self._id = str(uuid4())
 
         # initialise members
         for i, m in enumerate(self._members):
@@ -191,16 +191,20 @@ class Population(IPopulation):
             # partial async simulation with members not finishing in the same order.
             shuffled_members = shuffled(self.members, enabled=randomize_order)
             if show_progress:
-                max_score = max(m.score for m in self)
+                max_score = max(m.score for m in self) if i > 0 else float('-inf')
 
             # ADVANCE POPULATION
             for j, member in enumerate(shuffled_members):  # should be async
                 if show_progress:
                     itr.set_description(f'step {i+1}/{n} (member {j+1}/{len(self.members)}) [{max_score}]')
+
                 # one step of optimisation using hyper-parameters h
-                self._step(member)
+                result = self._step(member)
                 # current model evaluation
                 self._eval(member)
+
+                # push history
+                member.push_history(result)
 
             # TODO: is separating this better?
             # EXPLOIT / EXPLORE
@@ -211,18 +215,23 @@ class Population(IPopulation):
                 # READY?
                 if self._is_ready(member):
                     do_explore = explore
+
                     # EXPLOIT
                     if exploit:
                         if self.debug:
                             tqdm.write(f'[EXPLOITING]: {member.id}')
                         # replace the member using the rest of population to find a better solution
-                        exploited = self._exploit(member)
+                        exploited_member = self._exploit(member)
+                        # push history
+                        if exploited_member is not None:
+                            member.push_history_update(exploited_member.id)
                         # only explore if we exploited
-                        do_explore = do_explore and exploited
+                        do_explore = do_explore and (exploited_member is not None)
+
                     # EXPLORE
                     if do_explore:
                         if self.debug:
-                            tqdm.write(f'[EXPLORING]: {member.id}')
+                            tqdm.write(f'[EXPLORING]: {member.id} {member.score}')
                         # produce new hyper-parameters h and update member
                         self._explore(member)
                         # new model evaluation
@@ -233,9 +242,9 @@ class Population(IPopulation):
 
             # STEP - LOGGING
             if self._options.get('print_scores', False) or self._debug:
-                tqdm.write(f'[RESULTS]: step={i+1} max_score={max(m.score for m in self)} min_score={min(m.score for m in self)}')
-                for m in sorted(self.members, key=lambda m: m.score):
-                    tqdm.write(f'  {m.id}: {m.score:5f}{"" if m.history[-1].exploit_id is None else f" <- {m.history[-1].exploit_id}"} | {m.mutable_str}')
+                tqdm.write(f'[RESULTS]: step={i+1} max_score={max(m.history[-1].p for m in self)} min_score={min(m.history[-1].p for m in self)}')
+                for m in sorted(self.members, key=lambda m: (m.history[-1].p, m.id)):
+                    tqdm.write(f'  {m.id}: {m.history[-1].p:5f}{"" if m.history[-1].exploit_id is None else f" <- {m.history[-1].exploit_id}"}')
                 tqdm.write('')
 
             # STEP CALLBACK
@@ -259,9 +268,10 @@ class Population(IPopulation):
 
         return self
 
-    def _step(self, member) -> NoReturn:
-        member.step(self.options)
+    def _step(self, member) -> object:
+        result = member.step(self.options)
         self.exploiter._member_on_step(member)
+        return result
 
     def _eval(self, member) -> NoReturn:
         member.eval(options=self.options)
@@ -269,15 +279,15 @@ class Population(IPopulation):
     def _is_ready(self, member) -> bool:
         return member.is_ready(self)
 
-    def _exploit(self, member) -> bool:
+    def _exploit(self, member) -> Optional['IMember']:
         exploited_member = member.exploit(self)
         if exploited_member is not None:
             self.exploiter._member_on_used_for_exploit(exploited_member)
             self.exploiter._member_on_exploit_replaced(member)
             if self.debug:
                 tqdm.write(f'[EXPLOIT]: {member.id} <- {exploited_member.id}')
-            return True
-        return False
+            return exploited_member
+        return None
 
     def _explore(self, member) -> bool:
         explored = member.explore(self)
@@ -410,6 +420,12 @@ class IMember(abc.ABC):
     def history(self) -> List['HistoryItem']:
         pass
 
+    def push_history(self, results, exploit_id=None):
+        pass
+
+    def push_history_update(self, exploit_id):
+        pass
+
     # def __getitem__(self, item) -> 'HistoryItem':
     #     return self.history.__getitem__(item)
     #
@@ -499,37 +515,38 @@ class Member(IMember):
         self._t = 0
         self._t_last_explore = 0
         # should the score value be recalculated
-        self._recal = False  # we want to use infinity for the first step.
-        self._results = None
+        self._recal = True
         # other vars
         self._history = []
         self._id = None
 
     def __str__(self):
         """ Get the string representation of the member """
-        return f"{self._t} : {self._p}"
+        return f"{self.__class__.__name__}{{{self.steps} : {self.score} : {self.copy_h()}}}"
 
     @property
     def history(self) -> List['HistoryItem']:
         return self._history
 
-    def _push_history(self, exploit_id=None):
-        self._history.append(HistoryItem(self.copy_h(), self._p, self._t, exploit_id, self._results))
+    def push_history(self, results, exploit_id=None) -> NoReturn:
+        self._history.append(HistoryItem(self.copy_h(), self.score, self.steps, exploit_id, results))
 
-    def _push_history_update(self, exploit_id=None):
-        self._history.pop()
-        self._push_history(exploit_id)
+    def push_history_update(self, exploit_id) -> NoReturn:
+        old = self._history.pop()
+        assert exploit_id is not None
+        assert old.exploit_id is None
+        item = HistoryItem(old.h, old.p, old.t, exploit_id, old.result)
+        self._history.append(item)
 
     def step(self, options: dict):
-        # append to member's history.
-        self._push_history()
         # update the parameters of the member.
-        self._results = self._step(options)
+        results = self._step(options)
         self._save_theta(self.id)
         # indicate that the score score should be recalculated.
         self._recal = True
         # increment step counter
         self._t += 1
+        return results
 
     def eval(self, options: dict):
         # only recalculate score score if necessary
@@ -543,10 +560,15 @@ class Member(IMember):
 
     @property
     def score(self):
-        if self._t <= 0:
-            return float('-inf')
+        # if self._t <= 0:
+        #     print('INF', type(self.score), self.score)
+        #     return float('-inf')
         assert not self._recal, f'The member {self.id} has not been evaluated'
         return self._p
+
+    @property
+    def steps(self):
+        return self._t
 
     def is_ready(self, population: 'IPopulation') -> bool:
         ready = self._is_ready(population, self._t, self._t - self._t_last_explore)
@@ -569,16 +591,13 @@ class Member(IMember):
         self._save_theta(self.id)
         self._set_h(member.copy_h())
         self._recal = True
-        # update history for this step
-        # check the next item in the history for the true info.
-        self._push_history_update(member.id)
         # Success
         return member
 
     def explore(self, population: 'IPopulation') -> bool:
         exploring_h = self._explored_h(population)
         assert exploring_h is not None, "Explore values are None, problem with explorer?"
-        # Set hyperparameters
+        # Set hyper-parameters
         self._set_h(exploring_h)
         self._recal = True
         self._t_last_explore = self._t
