@@ -179,9 +179,9 @@ def run_dual_test():
     with tqdm(range(options['repeats']), disable=os.environ.get("DISABLE_TQDM", False)) as itr:
         for i in itr:
             results = []  # [(score, converge_time, score_seq, pop_len)]
-            for name, make_exploiter in exploiters:
+            for j, (name, make_exploiter) in enumerate(exploiters):
                 exploiter = make_exploiter()
-                result = make_plot(axs[:, 0], options, exploiter=exploiter,  steps=options["steps"], title=f'PBT {name}')
+                result = make_plot(axs[:, j], options, exploiter=exploiter,  steps=options["steps"], title=f'PBT {name}')
                 results.append(result)
             r_scores, r_conv_time, r_score_seq, r_pop_sizes, t_times = zip(*results)
 
