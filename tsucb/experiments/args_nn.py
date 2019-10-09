@@ -93,20 +93,20 @@ EXPERIMENT_CHOICES = [
 class ExperimentArgs(Attrs):
 
     # EXPERIMENT
-    experiment_repeats:       int             = field(default=1,           cast=int_rng(1, INF))                     # used
-    experiment_name:          str             = field(default=uuid4())                                                 # TODO
+    experiment_repeats:       int             = field(default=1,           cast=int_rng(1, INF))                       # used
+    experiment_name:          str             = field(default=str(uuid4()))                                            # TODO
     experiment_type:          str             = field(default='toy',       cast=str.lower, choices=EXPERIMENT_CHOICES) # used
     experiment_seed:          int             = field(default=42)                                                      # used
     # CNN
     cnn_dataset:              str             = field(default='MNIST',     choices=DATASET_CHOICES)                    # used
-    cnn_batch_size:           int             = field(default=32,          cast=int_rng(1, 1024))                    # used
+    cnn_batch_size:           int             = field(default=32,          cast=int_rng(1, 1024))                      # used
     cnn_use_cpu:              bool            = field(default=False)                                                   # used
-    cnn_step_divs:            int             = field(default=1,           cast=int_rng(1, 1000))                    # used
+    cnn_step_divs:            int             = field(default=1,           cast=int_rng(1, 1000))                      # used
     # PBT
     pbt_print:                bool            = field(default=False)                                                   # used
-    pbt_target_steps:         int             = field(default=10,          cast=int_rng(1, INF))                     # used
-    pbt_members:              int             = field(default=25,          cast=int_rng(1, INF))                     # used
-    pbt_members_ready_after:  int             = field(default=2,           cast=int_rng(1, INF))                     # used
+    pbt_target_steps:         int             = field(default=10,          cast=int_rng(1, INF))                       # used
+    pbt_members:              int             = field(default=25,          cast=int_rng(1, INF))                       # used
+    pbt_members_ready_after:  int             = field(default=2,           cast=int_rng(1, INF))                       # used
     pbt_exploit_strategy:     str             = field(default='ts',        cast=str.lower, choices=STRATEGY_CHOICES)   # used
     pbt_exploit_suggest:      str             = field(default='random',    cast=str.lower, choices=SUGGEST_CHOICES)    # used
     pbt_disable_exploit:      bool            = field(default=False)                                                   # used
@@ -115,18 +115,18 @@ class ExperimentArgs(Attrs):
     pbt_disable_random_order: bool            = field(default=False)                                                   # used
     # EXPLOITER - UCB
     suggest_ucb_incr_mode:    str             = field(default='exploited', cast=str.lower, choices=INCR_MODES)         # used
-    suggest_ucb_c:            float           = field(default=1.00,        cast=flt_rng(0.0, 2.0))                   # used
-    suggest_softmax_temp:     float           = field(default=1.00,        cast=flt_rng(0.0, INF))                   # used
-    suggest_eps:              float           = field(default=0.75,        cast=flt_rng(0.0, 1.0))                   # used
+    suggest_ucb_c:            float           = field(default=1.00,        cast=flt_rng(0.0, 2.0))                     # used
+    suggest_softmax_temp:     float           = field(default=1.00,        cast=flt_rng(0.0, INF))                     # used
+    suggest_eps:              float           = field(default=0.75,        cast=flt_rng(0.0, 1.0))                     # used
     # EXPLOITER - UCB & TS
-    strategy_ts_ratio_top:    float           = field(default=0.20,        cast=flt_rng(0.0, 1.0))                   # used
-    strategy_ts_ratio_bottom: float           = field(default=0.20,        cast=flt_rng(0.0, 1.0))                   # used
-    strategy_tt_confidence:   float           = field(default=0.95,        cast=flt_rng(0.0, 1.0))                   # used
+    strategy_ts_ratio_top:    float           = field(default=0.20,        cast=flt_rng(0.0, 1.0))                     # used
+    strategy_ts_ratio_bottom: float           = field(default=0.20,        cast=flt_rng(0.0, 1.0))                     # used
+    strategy_tt_confidence:   float           = field(default=0.95,        cast=flt_rng(0.0, 1.0))                     # used
     # EXTRA
     debug:                    bool            = field(default=False)                                                   # used
     # COMET
     comet_enable:             bool            = field(default=False)                                                   # TODO
-    comet_project_name:       Optional[str]   = field(default=None)                                                    # used
+    comet_project_name:       str             = field(default='unnamed-project')                                                    # used
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -138,18 +138,17 @@ class ExperimentArgs(Attrs):
     # INSTANCE #
     # -------- #
 
-    def to_dict(self, used_only=False):
-        # temp
-        self.make_suggest()
-        self.make_strategy()
-        self.make_member()
-        # get dict
-        opts = self.as_dict()
-        if used_only:
-            opts = {k: v for k, v in opts.items() if k not in {'debug', 'enable_comet'}}
-            opts = {k: v for k, v in opts.items() if not k.startswith('suggest_') or k in self._used_suggest_fields}
-            opts = {k: v for k, v in opts.items() if not k.startswith('strategy_') or k in self._used_strategy_fields}
-            opts = {k: v for k, v in opts.items() if not k.startswith('cnn_') or k in self._used_cnn_fields}
+    def _filter_return_used_args(self, opts) -> dict:
+        if not self._used_suggest_fields:
+            self.make_suggest()
+        if not self._used_strategy_fields:
+            self.make_strategy()
+        if not self._used_cnn_fields:
+            self.make_member()
+        opts = {k: v for k, v in opts.items() if k not in {'debug', 'enable_comet'}}
+        opts = {k: v for k, v in opts.items() if not k.startswith('suggest_') or k in self._used_suggest_fields}
+        opts = {k: v for k, v in opts.items() if not k.startswith('strategy_') or k in self._used_strategy_fields}
+        opts = {k: v for k, v in opts.items() if not k.startswith('cnn_') or k in self._used_cnn_fields}
         return opts
 
     # >>> COMPUTED VARIABLES <<< #

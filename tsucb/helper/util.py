@@ -226,6 +226,33 @@ def load_dotenv():
     return values
 
 
+def get_python_path():
+    import os
+    return os.environ.get('PYTHONPATH', '').split(os.pathsep)
+
+def strip_python_path(path):
+    paths = get_python_path()
+    paths = [path[len(p):].lstrip('\\/') for p in paths if path.startswith(p)]
+    if not paths:
+        return path
+    return min(paths, key=len)
+
+def strip_pwd(path):
+    import os
+    if 'PWD' not in os.environ:
+        return path
+    p = os.environ.get('PWD')
+    if path.startswith(p):
+        return path[len(p):].lstrip('\\/')
+    return path
+
+def simplify_path(path, strip_pwd_=False, strip_python_path_=False):
+    assert not (strip_pwd_ and strip_python_path_), 'Choose either strip_pwd or strip_python_path, cannot do both.'
+    if strip_python_path_:
+        path = strip_python_path(path)
+    if strip_pwd_:
+        path = strip_pwd(path)
+    return path
 
 # ========================================================================= #
 # END                                                                       #

@@ -136,7 +136,7 @@ def make_plot(ax_col, options, exploiter, steps=200, title=None):
 
 def run_dual_test():
     options = {
-        "steps": 13,
+        "steps": 11,
         "steps_till_ready": 2,
 
         "debug": False,
@@ -144,9 +144,9 @@ def run_dual_test():
         "exploit_copies_h": False,  # must be False for toy example to be valid
 
         # custom
-        "repeats": 250,
+        "repeats": 2500,
         "exploration_scale": 0.1,
-        "population_size": 40,
+        "population_size": 50,
         "print_scores": False
     }
 

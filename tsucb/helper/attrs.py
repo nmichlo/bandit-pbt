@@ -18,11 +18,12 @@
 #  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
+
+
 import argparse
 import types
-
-import fire
 from typeguard import check_type
+from tsucb.helper import util
 
 
 # ========================================================================= #
@@ -38,7 +39,10 @@ _NONE = object()
 class field(object):
     def __init__(self, default=_NONE, cast=None, choices=None, required=False):
         self._default = default
-        assert cast is None or callable(cast), 'cast must be callable'
+        assert default is not None, 'None is not supported as a default value. TODO: parsing from the command line requires work'
+        assert cast is None or callable(cast), 'Cast must be callable'
+        if required:
+            assert default is _NONE, 'Required cannot have a default value'
         self._cast = cast
         self._choices = set(choices) if (choices is not None) else None
         # extra info
@@ -125,10 +129,53 @@ class Attrs(object, metaclass=_AttrMeta):
             value = field.get(kwargs[k]) if (k in kwargs) else field.get()
             setattr(self, k, value)
 
-    def as_dict(self):
-        return {k: getattr(self, k) for k in self._fields_public_}
-    def as_tuple(self):
+    def as_dict(self, only_used=False, only_changed=False) -> dict:
+        # GET ALL ITEMS:
+        items = {k: getattr(self, k) for k in self._fields_public_}
+        if only_changed:
+            changed_items = {}
+            for k, v in items.items():
+                field = self._fields_[k]
+                if field._required or v != field._default:
+                    changed_items[k] = v
+            return changed_items
+        # GET USED ONLY:
+        if only_used:
+            items = self._filter_return_used_args(items)
+        # RETURN
+        return items
+
+    def _filter_return_used_args(self, items) -> dict:
+        raise NotImplementedError('')
+
+    def as_tuple(self) -> tuple:
         return tuple(getattr(self, k) for k in self._fields_public_)
+
+    def as_args(self, only_used=False, only_changed=False) -> str:
+        strings = []
+        for k, v in self.as_dict(only_used=only_used, only_changed=only_changed).items():
+            flag = k.replace('_', '-')
+            if self._fields_[k]._type is bool:
+                if self._fields_[k]._default == v:
+                    continue
+                strings.append(f'--{flag}')
+            else:
+                v = str(v)
+                assert '"' not in v, f'Invalid character \' " \' encountered in string representation of field "{k}"'
+                strings.append(f'--{flag}="{v}"')
+        return ' '.join(strings)
+
+    def as_command(self, only_used=False, only_changed=False, strip_pwd=True, strip_python_path=False) -> str:
+        import sys
+        command = sys.argv[0]
+        command = util.simplify_path(command, strip_pwd_=strip_pwd, strip_python_path_=strip_python_path)
+        return f'{command} {self.as_args(only_used=only_used, only_changed=only_changed)}'
+
+    def get_launch_command(self, strip_pwd=True, strip_python_path=False):
+        import sys
+        command = ' '.join(sys.argv)
+        command = util.simplify_path(command, strip_pwd_=strip_pwd, strip_python_path_=strip_python_path)
+        return command
 
     @classmethod
     def from_dict(cls, kwargs):
@@ -160,6 +207,18 @@ class Attrs(object, metaclass=_AttrMeta):
     def from_system_args(cls):
         args = cls.get_parser().parse_args()
         return cls.from_dict(vars(args))
+
+    def print_reproduce_command(self):
+        print(f'# {"="*96} #')
+        print('[COMMAND MINIMAL]: used args minus defaults')
+        print('    $', self.as_command(only_used=True, only_changed=True))
+        print()
+        print('[COMMAND MINIMAL]: used args minus defaults')
+        print('    $', self.as_command(only_used=True, only_changed=False))
+        print()
+        print('[COMMAND MINIMAL]: used args minus defaults')
+        print('    $', self.as_command(only_used=False, only_changed=False))
+        print(f'# {"="*96} #')
 
     def __str__(self):
         return self.__repr__()

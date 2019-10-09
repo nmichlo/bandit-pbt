@@ -19,9 +19,20 @@
 #  SOFTWARE.
 
 
+# ========================================================================== #
+# LOAD ENV                                                                   #
+# ========================================================================== #
+
+
 if __name__ == '__main__':
     from tsucb.helper.util import load_dotenv
     load_dotenv()
+
+
+# ========================================================================== #
+# IMPORTS                                                                    #
+# ========================================================================== #
+
 
 import os
 import comet_ml
@@ -40,7 +51,7 @@ from tsucb.pbt.pbt import Population
 # ========================================================================== #
 
 
-class ExperimentTracker(object):
+class ExperimentTrackerNN(object):
 
     def __init__(self):
         self.COMET = None
@@ -151,7 +162,9 @@ class ExperimentTracker(object):
 
 if __name__ == '__main__':
     experiment = ExperimentArgs.from_system_args()
-    tracker = ExperimentTracker()
+    experiment.print_reproduce_command()
+
+    tracker = ExperimentTrackerNN()
 
     experiment.do_experiment(
         cb_pre_exp=tracker.pre_exp,
