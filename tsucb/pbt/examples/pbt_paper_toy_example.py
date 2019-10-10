@@ -100,7 +100,7 @@ def plot_theta(ax, population, steps, title):
 
     ax.set(xlim=[-0.1, 1], ylim=[-0.1, 1], title=title, xlabel='theta0', ylabel='theta1')
 
-def make_plot(ax_col, options, exploiter, steps=200, title=None):
+def make_plot(ax_col, options, exploiter, steps=200, title=None, converge_score=1.18):
     population = Population([
         # ToyMember(ToyHyperParams(np.array([1., .0]), 0.01), np.array([.9, .9])),
         # ToyMember(ToyHyperParams(np.array([.0, 1.]), 0.01), np.array([.9, .9])),
@@ -121,17 +121,27 @@ def make_plot(ax_col, options, exploiter, steps=200, title=None):
 
     # Calculates the score as the index of the first occurrence greater than 1.18
     scores = np.array([[h.p for h in m.history] for m in population])
-    firsts = np.argmax(scores > 1.18, axis=1)
+    firsts = np.argmax(scores >= converge_score, axis=1)
     firsts[firsts == 0] = scores.shape[1]
     time_to_converge = np.min(firsts)
 
     score = np.max(population.scores)
 
-    if options['repeats'] <= 10:
+    if options['repeats'] < 10:
         plot_theta(ax_col[0], population, steps=steps, title=title)
         plot_performance(ax_col[1], population, steps=steps, title=title)
 
-    return score, time_to_converge, scores.max(axis=0), len(population), t1 - t0
+    return {
+        'score': score,
+        'converge_time': time_to_converge,
+        # scores
+        'scores': scores,
+        # info
+        'converge_score': converge_score,
+        'population_steps': steps,
+        'population_size': len(population),
+        'runtime': t1 - t0
+    }
 
 
 # ========================================================================== #
@@ -140,8 +150,11 @@ def make_plot(ax_col, options, exploiter, steps=200, title=None):
 
 
 def run_dual_test():
+
+    RESET = False
+
     options = {
-        "steps": 11,
+        "steps": 12,
         "steps_till_ready": 2,
 
         "debug": False,
@@ -149,7 +162,7 @@ def run_dual_test():
         "exploit_copies_h": False,  # must be False for toy example to be valid
 
         # custom
-        "repeats": 2500,
+        "repeats": 1000,
         "exploration_scale": 0.1,
         "population_size": 50,
         "print_scores": False
@@ -158,66 +171,51 @@ def run_dual_test():
     make_exploit_strategy = lambda: ExploitStrategyTruncationSelection()
 
     # EXPLOITERS
+    info_keys = ['Exploiter', 'Suggest', 'Epsilon', 'Random']
     exploiters = [
-        # orig
-        # ('orig-ts',     lambda: OrigExploitTruncationSelection()),
-        # ('orig-ts-eg',  lambda: OrigExploitEGreedy(epsilon=0.5, subset_mode='top')),
-        # ('orig-ts-ucb', lambda: OrigExploitUcb(c=1.0, subset_mode='top', normalise_mode='subset', incr_mode='exploited')),
-        # ('orig-ts-sm',  lambda: OrigExploitSoftmax(temperature=1.0, subset_mode='top')),
-        # ('orig-ts-esm', lambda: OrigExploitESoftmax(epsilon=0.5, temperature=1.0, subset_mode='top')),
-        # new
-        ('ts',         lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUniformRandom())),
-        # ('ts-gr',      lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestGreedy())),
-        ('ts-egr_0.7',      lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonGreedy(epsilon=0.7))),
-        ('ts-sm_1.0',       lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestSoftmax(temperature=1.0))),
-        ('ts-esm_0.7-1.0',      lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonSoftmax(epsilon=0.7, temperature=1.0))),
-        # ('ts-ucb-0.1',  lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=0.1))),
-        # ('ts-ucb-0.5',  lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=0.5))),
-        ('ts-ucb_1.0', lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=1.0))),
-        # ('ts-ucb-2.0',  lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=1.0))),
-        # ('ts-eucb',     lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonUcb(epsilon=0.75, c=1.0))),
+        # #bbbbbb #707070 #000000
+        # name
+        (dict(Exploiter='TS Random',                Suggest='uniform', Epsilon=False, Random=True),  lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUniformRandom())),
+        (dict(Exploiter='TS Softmax (τ=1)',         Suggest='softmax', Epsilon=False, Random=True),  lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestSoftmax(temperature=1.0))),
+        (dict(Exploiter='TS ε-Greedy (ε=0.7)',      Suggest='uniform', Epsilon=True,  Random=True),  lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonGreedy(epsilon=0.7))),
+        (dict(Exploiter='TS ε-Softmax (ε=0.7 τ=1)', Suggest='softmax', Epsilon=True,  Random=True),  lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonSoftmax(epsilon=0.7, temperature=1.0))),
+        (dict(Exploiter='TS UCB (c=1)',             Suggest='ucb',     Epsilon=False, Random=False), lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=1.0))),
     ]
+
     k = len(exploiters)
 
-    # RESULTS
-    scores, converge_times, scores_per_steps, times = [], [], np.zeros((k, options['steps'])), []
-    fig, axs = make_subplots(2, k)
+    if RESET or not os.path.exists('./toy_results.dat'):
+        # INFO
+        fig, axs = make_subplots(2, k)
+        results = []
+        # EXPERIMENTS
+        with tqdm(range(options['repeats']), disable=os.environ.get("DISABLE_TQDM", False)) as itr:
+            for i in itr:
+                for j, (info, make) in enumerate(exploiters):
+                    result = make_plot(axs[:, j], options, exploiter=make(),  steps=options["steps"], title=f'PBT {info[info_keys[0]]}')
+                    result.update(info)
+                    results.append(result)
+        results = pd.DataFrame(results)
+        results.to_msgpack('./toy_results.dat')
+    else:
+        results = pd.read_msgpack('./toy_results.dat')
 
-    @util.min_time_elapsed(0.5)
-    def print_results(i, n):
-        tqdm.write(f"{i:{len(str(n))}d}/{n} {' | '.join(f'{name}: {s:9.7f} {c:9.7f} {t:5.3f}s' for (name, _), s, c, t in zip(exploiters, np.average(scores, axis=0), np.average(converge_times, axis=0), np.average(times, axis=0)))}")
+    # GATHER RESULTS - convert rows of lists to rows
+    aggregated = []
+    for info, group in results.groupby(info_keys):
+        scores = np.array(list(group['scores']))
+        max_runs = scores.max(axis=1).mean(axis=0)
+        min_runs = scores.min(axis=1).mean(axis=0)
+        ave_runs = scores.mean(axis=1).mean(axis=0)
+        for step, (member_max, member_mean, member_min) in enumerate(zip(max_runs.T, ave_runs.T, min_runs.T)):
+            # for member_max in member_max: # generate confidence bounds instead
+                aggregated.append({**{k:v for k,v in zip(info_keys, info)}, 'Step': step,  'Aggregate': 'Max', 'Score': member_max})
+    aggregated = pd.DataFrame(aggregated)
 
-    # EXPERIMENTS
-    with tqdm(range(options['repeats']), disable=os.environ.get("DISABLE_TQDM", False)) as itr:
-        for i in itr:
-            results = []  # [(score, converge_time, score_seq, pop_len)]
-            for j, (name, make_exploiter) in enumerate(exploiters):
-                exploiter = make_exploiter()
-                result = make_plot(axs[:, j], options, exploiter=exploiter,  steps=options["steps"], title=f'PBT {name}')
-                results.append(result)
-            r_scores, r_conv_time, r_score_seq, r_pop_sizes, t_times = zip(*results)
-
-            scores.append(r_scores)
-            converge_times.append(r_conv_time)
-            scores_per_steps += np.array(r_score_seq) / options['repeats']
-            times.append(t_times)
-
-            assert all(a == b for a, b in zip(r_pop_sizes[:-1], r_pop_sizes[1:]))
-
-            print_results(i, options['repeats'])
-
-    scores, converge_times, scores_per_steps = np.array(scores), np.array(converge_times), np.array(scores_per_steps)
-
-    if options['repeats'] <= 10:
-        # theta0 vs theta1
-        fig.show()
-
-    # scores
-    fig, ((ax,),) = make_subplots(1, 1)
-    for (name, _), score_per_step in zip(exploiters, scores_per_steps):
-        ax.plot(score_per_step, label=f'{name}')
-    ax.legend()
-    fig.show()
+    # plot for old code
+    plt.show()
+    sns.lineplot(x="Step", y="Score", hue="Suggest", style='Epsilon', legend='full', data=aggregated, palette=sns.color_palette("GnBu", 3))
+    plt.show()
 
 
 if __name__ == '__main__':
