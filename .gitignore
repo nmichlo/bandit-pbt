@@ -109,3 +109,4 @@ venv.bak/
 # CUSTOM
 /data/
 .comet.config
+*.dat

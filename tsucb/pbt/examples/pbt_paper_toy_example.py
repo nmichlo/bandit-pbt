@@ -150,9 +150,6 @@ def make_plot(ax_col, options, exploiter, steps=200, title=None, converge_score=
 
 
 def run_dual_test():
-
-    RESET = False
-
     options = {
         "steps": 12,
         "steps_till_ready": 2,
@@ -165,7 +162,10 @@ def run_dual_test():
         "repeats": 1000,
         "exploration_scale": 0.1,
         "population_size": 50,
-        "print_scores": False
+        "print_scores": False,
+
+        # redo
+        'RESET': False
     }
 
     make_exploit_strategy = lambda: ExploitStrategyTruncationSelection()
@@ -173,19 +173,15 @@ def run_dual_test():
     # EXPLOITERS
     info_keys = ['Exploiter', 'Suggest', 'Epsilon', 'Random']
     exploiters = [
-        # #bbbbbb #707070 #000000
-        # name
         (dict(Exploiter='TS Random',                Suggest='uniform', Epsilon=False, Random=True),  lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUniformRandom())),
-        (dict(Exploiter='TS Softmax (τ=1)',         Suggest='softmax', Epsilon=False, Random=True),  lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestSoftmax(temperature=1.0))),
         (dict(Exploiter='TS ε-Greedy (ε=0.7)',      Suggest='uniform', Epsilon=True,  Random=True),  lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonGreedy(epsilon=0.7))),
+        (dict(Exploiter='TS Softmax (τ=1)',         Suggest='softmax', Epsilon=False, Random=True),  lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestSoftmax(temperature=1.0))),
         (dict(Exploiter='TS ε-Softmax (ε=0.7 τ=1)', Suggest='softmax', Epsilon=True,  Random=True),  lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonSoftmax(epsilon=0.7, temperature=1.0))),
         (dict(Exploiter='TS UCB (c=1)',             Suggest='ucb',     Epsilon=False, Random=False), lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=1.0))),
     ]
-
     k = len(exploiters)
 
-    if RESET or not os.path.exists('./toy_results.dat'):
-        # INFO
+    if options['RESET'] or not os.path.exists('./toy_results.dat'):
         fig, axs = make_subplots(2, k)
         results = []
         # EXPERIMENTS
@@ -214,7 +210,11 @@ def run_dual_test():
 
     # plot for old code
     plt.show()
-    sns.lineplot(x="Step", y="Score", hue="Suggest", style='Epsilon', legend='full', data=aggregated, palette=sns.color_palette("GnBu", 3))
+    sns.lineplot(x="Step", y="Score", hue="Suggest", style='Epsilon', legend=False, data=aggregated, palette=sns.color_palette("GnBu", 3))
+    # >>> MAKE SURE THIS MATCHES AS ORDER CAN CHANGE <<<
+    # >>> MAKE SURE THIS MATCHES AS ORDER CAN CHANGE <<<
+    # >>> MAKE SURE THIS MATCHES AS ORDER CAN CHANGE <<<
+    plt.legend(labels=list(info[info_keys[0]] for info, _ in exploiters))
     plt.show()
 
 
