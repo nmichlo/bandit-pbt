@@ -96,23 +96,34 @@ MUTATIONS = {
 # ========================================================================= #
 
 
-CHECKPOINT_MAP = {}
-if __name__ == '__main__':
-    CHECKPOINT_DIR = util.make_empty_dir(f'./checkpoints/{util.get_hostname(replace_dots=True)}')
-    tqdm.write(f'[CLEARED CHECKPOINT DIR]: {CHECKPOINT_DIR}')
+class PathProvider(object):
+    def __init__(self, directory=None):
+        if directory is None:
+            directory = f'./temp/checkpoints/{util.get_hostname(replace_dots=True)}'
+        self._directory = util.make_empty_dir(directory)
+
+    def get_path(self, id):
+        return os.path.join(self._directory, f'checkpoint_{id}.dat')
+
+    def cleanup(self):
+        util.make_empty_dir(self._directory)
+        tqdm.write(f'[CLEANED CHECKPOINT DIR]: {self._directory}')
+
+    def __repr__(self):
+        return f'{self.__class__.__name__}(directory={self._directory.__repr__()})'
 
 
 class MemberTorch(Member):
-    def _setup(self, config) -> NoReturn:
+    def _setup(self, config, path_provider=None) -> NoReturn:
         self._config = config
+        self._path_provider = PathProvider() if (path_provider is None) else path_provider
         self._trainable = TorchTrainable(deepcopy(config), share_id=self.population_id)
 
     def _save_theta(self):
-        CHECKPOINT_MAP[self.id] = os.path.join(CHECKPOINT_DIR, f'checkpoint_{self.id}.dat')
-        self._trainable.save(CHECKPOINT_MAP[self.id])
+        self._trainable.save(self._path_provider.get_path(self.id))
 
     def _load_theta(self, id):
-        self._trainable.restore(CHECKPOINT_MAP[id])
+        self._trainable.restore(self._path_provider.get_path(self.id))
 
     def copy_h(self) -> dict:
         return deepcopy(self._config)
@@ -120,7 +131,7 @@ class MemberTorch(Member):
     def _set_h(self, h) -> NoReturn:
         self._config = h
         self._trainable.reset(config=h)
-        self._trainable.restore(CHECKPOINT_MAP[self.id])
+        self._trainable.restore(self._path_provider.get_path(self.id))
 
     def _explored_h(self, population: 'Population') -> dict:
         config = deepcopy(self._config)

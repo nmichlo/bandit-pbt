@@ -22,8 +22,8 @@
 
 import argparse
 import types
-from pprint import pprint
-
+from pprint import pprint, pformat
+from tqdm import tqdm
 from typeguard import check_type
 from tsucb.helper import util
 
@@ -40,18 +40,33 @@ _NONE = object()
 
 
 # acts like a lazy property, but intended for use with the Args class
-class computed(object):
-    def __init__(self, func):
+class _computed(object):
+    def __init__(self, func, **enabled_for):
         self.__name__ = func.__name__
         self.__module__ = func.__module__
         self.__doc__ = func.__doc__
         self._func = func
         self._value = _NONE
+        self._enabled = True
+        self._enabled_for = enabled_for
 
     def __get__(self, obj, type=None):
         if self._value is _NONE:
-            self._value = self._func(obj)
+            if self._enabled_for and (not all(v == getattr(obj, k) for k, v in self._enabled_for.items())):
+                self._enabled = False
+                self._value = None
+            else:
+                self._value = self._func(obj)
         return self._value
+
+def computed(*func, **enabled_for):
+    assert (len(func) == 1 and len(enabled_for) == 0) or (len(func) == 0 and len(enabled_for) == 1)
+    if func:
+        return _computed(func[0])
+    else:
+        def inner(func):
+            return _computed(func, **enabled_for)
+        return inner
 
 class field(object):
     def __init__(self, default=_NONE, cast=None, choices=None, required=False):
@@ -124,7 +139,7 @@ class _AttrMeta(type):
         cls._fields_ = fields
         cls._fields_public_ = {k: v for k, v in fields.items() if not k.startswith('_')}
         cls._fields_required_ = {k: v for k, v in cls._fields_public_.items() if v._required}
-        cls._fields_computed_ = {k: v for k, v in cls_fields.items() if isinstance(v, computed)}
+        cls._fields_computed_ = {k: v for k, v in cls_fields.items() if isinstance(v, _computed)}
 
         # properties = {k for k, v in cls._fields_computed.items() if isinstance(v, property)}
         # if properties:
@@ -170,7 +185,7 @@ class Args(object, metaclass=_AttrMeta):
         return items
 
     def get_dict_computed(self):
-        return {k: getattr(self, k) for k in self._fields_computed_}
+        return {k: c.__get__(self) for k, c in self._fields_computed_.items() if c.__get__(self) is not _NONE and c._enabled}
 
     @staticmethod
     def _print_dict(dict, sort=False, spaced_prefixes=False):
@@ -179,19 +194,19 @@ class Args(object, metaclass=_AttrMeta):
             if spaced_prefixes:
                 prefix = k.split('_')[0]
                 if (prev is not None) and (prev != prefix):
-                    print()
+                    tqdm.write('')
                 prev = prefix
-            print(f'    {k}={dict[k].__repr__()}')
+            tqdm.write(f'    {k}={dict[k].__repr__()}')
 
     def print_dict_computed(self):
         util.print_separator('COMPUTED VALUES:')
         self._print_dict(self.get_dict_computed(), sort=True, spaced_prefixes=False)
-        print()
+        tqdm.write('')
 
     def print_args(self, used_only=True, exclude_defaults=False):
         util.print_separator(f'ARGUMENTS: (used={used_only}, defaults={not exclude_defaults})')
         self._print_dict(self.as_dict(used_only=used_only, exclude_defaults=exclude_defaults), sort=True, spaced_prefixes=True)
-        print()
+        tqdm.write('')
 
     def _filter_return_used_args(self, items) -> dict:
         raise NotImplementedError('')
@@ -268,15 +283,15 @@ class Args(object, metaclass=_AttrMeta):
 
     def print_reproduce_info(self):
         util.print_separator('REPRODUCE EXPERIMENT:')
-        print('[COMMAND MINIMAL]:')
-        print('    $', self.as_command(used_only=True, exclude_defaults=True))
-        print()
-        print('[COMMAND USED]:')
-        print('    $', self.as_command(used_only=True, exclude_defaults=False))
-        print()
-        print('[COMMAND ALL]:')
-        print('    $', self.as_command(used_only=False, exclude_defaults=False))
-        print()
+        tqdm.write('[COMMAND MINIMAL]:')
+        tqdm.write(f'    $ {self.as_command(used_only=True, exclude_defaults=True)}')
+        tqdm.write('')
+        tqdm.write('[COMMAND USED]:')
+        tqdm.write(f'    $ {self.as_command(used_only=True, exclude_defaults=False)}')
+        tqdm.write('')
+        tqdm.write('[COMMAND ALL]:')
+        tqdm.write(f'    $ {self.as_command(used_only=False, exclude_defaults=False)}')
+        tqdm.write('')
 
     def __str__(self):
         return self.__repr__()
@@ -300,12 +315,12 @@ if __name__ == '__main__':
         def prod(self):
             return self.a * self.b
 
-        @property
+        @computed(a=2)
         def sum(self):
             return self.a + self.b
 
-    print(TestArgs().prod)
-    print(TestArgs().sum)
-    print(TestArgs().get_dict_computed())
+    tqdm.write(f'{TestArgs().prod}')
+    tqdm.write(f'{TestArgs().sum}')
+    tqdm.write(f'{TestArgs().get_dict_computed()}')
 
 

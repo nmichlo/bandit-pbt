@@ -86,6 +86,11 @@ class ExperimentTrackerNN(ExperimentTracker):
             parse_args=False,
         )
 
+        # LOG
+        exp.print_reproduce_info()
+        exp.print_args()
+        exp.print_dict_computed()
+
         # DETAILS
         self.COMET.add_tags([
             exp.experiment_type,
@@ -103,6 +108,9 @@ class ExperimentTrackerNN(ExperimentTracker):
 
         # INITIALISE:
         self._results = []
+
+        # BEGIN:
+        util.print_separator('RUNNING EXPERIMENT:')
 
     def pre_run(self, exp: ExperimentArgs, i: int):
         self.COMET.set_step(i)
@@ -165,7 +173,7 @@ class ExperimentTrackerNN(ExperimentTracker):
         mean_step_maxes = extracted_step_maxes.mean(axis=0)
 
         # LOG
-        tqdm.write('[MAX SCORES PER STEP]:')
+        tqdm.write('[MAX SCORES OVER RUNS]:')
         for i, run_maxes in enumerate(extracted_step_maxes):
             tqdm.write(f'    {i}: {run_maxes.tolist()}')
         tqdm.write(f'\n[RESULT] mean_step_maxes:   {mean_step_maxes.tolist()})')
@@ -173,25 +181,23 @@ class ExperimentTrackerNN(ExperimentTracker):
         tqdm.write(f'\n[RESULT] ave_max_score:     {ave_max_score:8f} (±{ave_scores_conf:8f})')
         tqdm.write(f'[RESULT] ave_converge_time: {ave_converge_time:8f} (±{ave_conv_time_conf:8f})')
 
-        try:
-            pass
-            df = pd.DataFrame({
-                'score': mean_step_maxes,
-                'step': np.arange(len(mean_step_maxes)),
-            })
-            plt.figure(figsize=(6, 3.75))
-            sns.lineplot(x='step', y='score', data=df, palette=sns.color_palette("GnBu", 1))
-            plt.show()
-        except Exception as e:
-            traceback.print_exc(e)
+        # try:
+        #     df = pd.DataFrame({
+        #         'score': mean_step_maxes,
+        #         'step': np.arange(len(mean_step_maxes)),
+        #     })
+        #     plt.figure(figsize=(6, 3.75))
+        #     sns.lineplot(x='step', y='score', data=df, palette=sns.color_palette("GnBu", 1))
+        #     plt.show()
+        # except Exception as e:
+        #     traceback.print_exc(e)
 
         try:
-            # TODO machine dependant folder
-            np.savez_compressed('results.npz', dict(
+            np.savez_compressed(os.path.join(exp.results_dir, 'results.npz'), dict(
                 results=self._results,
                 arguments=exp.as_dict(used_only=True, exclude_defaults=False)
             ))
-            print('[SAVED]: results.npz')
+            tqdm.write(f'[SAVED]: {os.path.join(exp.results_dir, "results.npz")}')
         except Exception as e:
             traceback.print_exc(e)
 
@@ -204,13 +210,12 @@ if __name__ == '__main__':
     experiment = ExperimentArgs.from_system_args(defaults=dict(
         experiment_repeats=10,
         pbt_members=50,
-        pbt_target_steps=12,
+        experiment_type='cnn',
+        pbt_target_steps=5*3,
         experiment_seed=np.random.randint(0, 2**32),  # [0, 2**32-1]
+        comet_enable=False,
+        pbt_print=True,
     ))
-
-    experiment.print_reproduce_info()
-    experiment.print_args()
-    experiment.print_dict_computed()
 
     experiment.do_experiment(
         tracker=ExperimentTrackerNN(),

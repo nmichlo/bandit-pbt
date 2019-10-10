@@ -20,11 +20,11 @@
 
 
 import argparse
+import atexit
 import os
 from uuid import uuid4
 from tsucb.helper import util
 from tsucb.helper.args import field, Args, computed
-from tsucb.helper.util import print_separator
 from tsucb.pbt.pbt import IExploiter, Population
 from tsucb.pbt.strategies import *
 
@@ -103,7 +103,7 @@ class ExperimentArgs(Args):
     cnn_dataset:              str             = field(default='MNIST',     choices=DATASET_CHOICES)                    # used
     cnn_batch_size:           int             = field(default=32,          cast=int_rng(1, 1024))                      # used
     cnn_use_cpu:              bool            = field(default=False)                                                   # used
-    cnn_step_divs:            int             = field(default=1,           cast=int_rng(1, 1000))                      # used
+    cnn_step_divs:            int             = field(default=5,           cast=int_rng(1, 1000))                      # used
     # PBT
     pbt_print:                bool            = field(default=False)                                                   # used
     pbt_target_steps:         int             = field(default=10,          cast=int_rng(1, INF))                       # used
@@ -163,6 +163,25 @@ class ExperimentArgs(Args):
     def tracker_converge_score(self):
         return 1.18 if self.experiment_type == 'toy' else 99.2
 
+    # PROPERTIES
+
+    @computed
+    def results_dir(self):
+        return f'./temp/results/{self.experiment_name}/{self.experiment_id}'
+
+    @computed
+    def pbt_show_progress(self):
+        return self.experiment_type == 'cnn'
+
+    @computed(experiment_type='cnn')
+    def checkpoint_dir(self):
+        return f'./temp/checkpoints/{util.get_hostname(replace_dots=True)}/{self.experiment_name}/{self.experiment_id}'
+
+    @computed(experiment_type='cnn')
+    def path_provider(self):
+        from tsucb.pbt.examples.pbt_local_mnist_example import PathProvider
+        return PathProvider(directory=self.checkpoint_dir)
+
     # >>> FACTORY FUNCTIONS <<< #
 
     def make_suggest(self) -> 'ISuggest':
@@ -210,21 +229,26 @@ class ExperimentArgs(Args):
             from tsucb.pbt.examples.pbt_local_mnist_example import MemberTorch, random_uniform, random_log_uniform
             # CNN MEMBER
             u = self._use_cnn_field
-            return MemberTorch(config=dict(
-                model='example', loss='NLLLoss', optimizer='SGD',
-                dataset=u('cnn_dataset'),
-                model_options={}, dataset_options={}, loss_options={}, optimizer_options=dict(
-                    lr=random_log_uniform(0.0001, 0.1),
-                    momentum=random_uniform(0.01, 0.99),
+            return MemberTorch(
+                config=dict(
+                    model='example', loss='NLLLoss', optimizer='SGD',
+                    dataset=u('cnn_dataset'),
+                    model_options={}, dataset_options={}, loss_options={}, optimizer_options=dict(
+                        lr=random_log_uniform(0.0001, 0.1),
+                        momentum=random_uniform(0.01, 0.99),
+                    ),
+                    mutations={
+                        'optimizer_options/lr':       ('uniform_perturb', 0.5,  1.8, 0.0001, 0.10),  # eg. 0.8 < 1/1.2  shifts exploration towards getting smaller
+                        'optimizer_options/momentum': ('uniform_perturb', 0.5, 2.00, 0.0100, 0.99),  #     0.8 = 1/1.25 is balanced
+                    },
+                    train_images_per_step=60000//u('cnn_step_divs'),
+                    batch_size=u('cnn_batch_size'),
+                    use_gpu=not u('cnn_use_cpu'),
+                    num_workers=2,
+                    pin_memory=False,
                 ),
-                mutations={
-                    'optimizer_options/lr':       ('uniform_perturb', 0.5,  1.8, 0.0001, 0.10),  # eg. 0.8 < 1/1.2  shifts exploration towards getting smaller
-                    'optimizer_options/momentum': ('uniform_perturb', 0.5, 2.00, 0.0100, 0.99),  #     0.8 = 1/1.25 is balanced
-                },
-                train_images_per_step=60000//u('cnn_step_divs'),
-                batch_size=u('cnn_batch_size'),
-                use_gpu=not u('cnn_use_cpu'),
-            ))
+                path_provider=self.path_provider
+            )
         else:
             raise KeyError(f'Invalid experiment_type: {self.experiment_type}')
 
@@ -253,7 +277,7 @@ class ExperimentArgs(Args):
             n=self.pbt_target_steps,
             exploit=not self.pbt_disable_exploit,
             explore=not self.pbt_disable_explore,
-            show_progress=False,
+            show_progress=self.pbt_show_progress,
             randomize_order=not self.pbt_disable_random_order,
             step_after_explore=not self.pbt_disable_eager_step,
             print_scores=self.pbt_print,
@@ -263,10 +287,12 @@ class ExperimentArgs(Args):
     def do_experiment(self, tracker=None):
         assert tracker is None or isinstance(tracker, ExperimentTracker), 'tracker is not an instance of ExperimentTracker'
 
-        print_separator('RUNNING EXPERIMENT:')
-
         if tracker is not None:
             tracker.pre_exp(self)
+
+        # make sure data is cleaned
+        if self.path_provider:
+            atexit.register(self.path_provider.cleanup)
 
         # EXPERIMENT
         for i in tqdm(range(self.experiment_repeats), 'repeat', disable=os.environ.get("DISABLE_TQDM", False)):
@@ -279,6 +305,15 @@ class ExperimentArgs(Args):
 
             if tracker is not None:
                 tracker.post_run(self, i, population)
+
+            # CLEANUP IF NEEDED
+            try:
+                if self.path_provider:
+                    atexit.unregister(self.path_provider.cleanup)
+                    self.path_provider.cleanup()
+            except Exception as e:
+                import traceback
+                traceback.print_exc(e)
 
         if tracker is not None:
             tracker.post_exp(self)

@@ -156,11 +156,14 @@ class TorchTrainable(object):
         self.reset(config)
 
     def _check_config(self, config):
+        if self._use_gpu:
+            assert torch.cuda.is_available(),                                                                 'Cuda availability changed'
+        assert self._use_gpu == (config['use_gpu'] and torch.cuda.is_available()),                            'Changes to dataset "use_gpu" not allowed during training.'
         assert self._train_images_per_step == config.get('train_images_per_step', None),                      'Changes to dataset "train_images_per_step" not allowed during training.'
         assert self._batch_size == config['batch_size'],                                                      'Changes to dataset "batch_size" not allowed during training.'
         assert self._train_shuffle == config.get('train_shuffle', self._DEFAULT_TRAIN_SHUFFLE),               'Changes to dataset "train_shuffle" not allowed during training.'
         assert self._num_workers == config.get('num_workers', self._DEFAULT_WORKERS if self._use_gpu else 0), 'Changes to dataset "num_workers" not allowed during training.'
-        assert self._pin_memory == config.get('pin_memory', False) and self._use_gpu,                                   'Changes to dataset "pin_memory" not allowed during training.'
+        assert self._pin_memory == (config.get('pin_memory', False) and self._use_gpu),                       'Changes to dataset "pin_memory" not allowed during training.'
 
     def reset(self, config):
         if (self._train_loader is None) and (self._test_loader is None) and (self._trainer is None):

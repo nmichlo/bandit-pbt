@@ -149,7 +149,7 @@ def print_module_class_heirarchy(module, root_cls_name):
         (parent,) = cls.__bases__
         parent_childrens.setdefault(parent.__name__, []).append(name)
     def recurse(name, depth=0):
-        tqdm.write('    ' * depth, '-', f'{name:20s}', inspect.signature(classes[name]) if name in classes else '')
+        tqdm.write(f"{'    '*depth} - {name:20s} {inspect.signature(classes[name]) if name in classes else ''}")
         if name in parent_childrens:
             for k in parent_childrens[name]:
                 recurse(k, depth+1)

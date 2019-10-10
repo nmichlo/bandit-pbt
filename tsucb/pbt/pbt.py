@@ -191,10 +191,10 @@ class Population(IPopulation):
                 if member.is_ready(self):
                     do_explore = explore
                     if exploit:
-                        print('\nEXPLOTING')
+                        tqdm.write('\nEXPLOTING')
                         # replace the member using the rest of population to find a better solution
                         exploited = member.exploit(self)
-                        print(f'EXPLOITED {exploited}')
+                        tqdm.write(f'EXPLOITED {exploited}')
                         do_explore = do_explore and (exploited is not None)
                     if do_explore:
                         # produce new hyper-parameters h and update member

@@ -29,7 +29,6 @@ from tqdm import tqdm
 # ========================================================================= #
 
 DATA_DIR = _os.path.expanduser(_os.getenv('DATA_DIR', '~/workspace/data'))
-tqdm.write(f'DATA_DIR="{DATA_DIR}"')
 
 # Change cache directory
 _cachier_pickle_core.CACHIER_DIR = _os.path.join(DATA_DIR, 'cachier')
