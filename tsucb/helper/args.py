@@ -124,7 +124,7 @@ class _AttrMeta(type):
         cls._fields_ = fields
         cls._fields_public_ = {k: v for k, v in fields.items() if not k.startswith('_')}
         cls._fields_required_ = {k: v for k, v in cls._fields_public_.items() if v._required}
-        cls._fields_computed = {k: v for k, v in cls_fields.items() if isinstance(v, computed)}
+        cls._fields_computed_ = {k: v for k, v in cls_fields.items() if isinstance(v, computed)}
 
         # properties = {k for k, v in cls._fields_computed.items() if isinstance(v, property)}
         # if properties:
@@ -146,16 +146,17 @@ class Args(object, metaclass=_AttrMeta):
                 if k not in self._fields_public_:
                     raise KeyError(f'field "{k}" is not a public, cannot set from arguments.')
             else:
-                raise KeyError(f'field "{k}" is unknown')
+                fields_str = ", ".join(f'{k}' for k in self._fields_public_)
+                raise KeyError(f'field "{k}" is unknown. Valid fields are: {fields_str}')
         # ASSIGN VALUES
         for k, field in self._fields_.items():
             value = field.get(kwargs[k]) if (k in kwargs) else field.get()
             setattr(self, k, value)
 
-    def as_dict(self, only_used=False, only_changed=False) -> dict:
+    def as_dict(self, used_only=False, exclude_defaults=False) -> dict:
         # GET ALL ITEMS:
         items = {k: getattr(self, k) for k in self._fields_public_}
-        if only_changed:
+        if exclude_defaults:
             changed_items = {}
             for k, v in items.items():
                 field = self._fields_[k]
@@ -163,22 +164,33 @@ class Args(object, metaclass=_AttrMeta):
                     changed_items[k] = v
             return changed_items
         # GET USED ONLY:
-        if only_used:
+        if used_only:
             items = self._filter_return_used_args(items)
         # RETURN
         return items
 
     def get_dict_computed(self):
-        return {k: getattr(self, k) for k in self._fields_computed}
+        return {k: getattr(self, k) for k in self._fields_computed_}
+
+    @staticmethod
+    def _print_dict(dict, sort=False, spaced_prefixes=False):
+        prev = None
+        for k in (sorted(dict) if sort else dict):
+            if spaced_prefixes:
+                prefix = k.split('_')[0]
+                if (prev is not None) and (prev != prefix):
+                    print()
+                prev = prefix
+            print(f'    {k}={dict[k].__repr__()}')
 
     def print_dict_computed(self):
         util.print_separator('COMPUTED VALUES:')
-        pprint(self.get_dict_computed(), width=100)
+        self._print_dict(self.get_dict_computed(), sort=True, spaced_prefixes=False)
         print()
 
-    def print_args(self, only_used=True, only_changed=False):
-        util.print_separator(f'ARGUMENTS: (used={only_used}, defaults={not only_changed})')
-        pprint(self.as_dict(only_used=only_used, only_changed=only_changed), width=100)
+    def print_args(self, used_only=True, exclude_defaults=False):
+        util.print_separator(f'ARGUMENTS: (used={used_only}, defaults={not exclude_defaults})')
+        self._print_dict(self.as_dict(used_only=used_only, exclude_defaults=exclude_defaults), sort=True, spaced_prefixes=True)
         print()
 
     def _filter_return_used_args(self, items) -> dict:
@@ -187,9 +199,9 @@ class Args(object, metaclass=_AttrMeta):
     def as_tuple(self) -> tuple:
         return tuple(getattr(self, k) for k in self._fields_public_)
 
-    def as_args(self, only_used=False, only_changed=False) -> str:
+    def as_args(self, used_only=False, exclude_defaults=False) -> str:
         strings = []
-        for k, v in self.as_dict(only_used=only_used, only_changed=only_changed).items():
+        for k, v in self.as_dict(used_only=used_only, exclude_defaults=exclude_defaults).items():
             flag = k.replace('_', '-')
             if self._fields_[k]._type is bool:
                 if self._fields_[k]._default == v:
@@ -201,11 +213,11 @@ class Args(object, metaclass=_AttrMeta):
                 strings.append(f'--{flag}="{v}"')
         return ' '.join(strings)
 
-    def as_command(self, only_used=False, only_changed=False, strip_pwd=True, strip_python_path=False) -> str:
+    def as_command(self, used_only=False, exclude_defaults=False, strip_pwd=True, strip_python_path=False) -> str:
         import sys
         command = sys.argv[0]
         command = util.simplify_path(command, strip_pwd_=strip_pwd, strip_python_path_=strip_python_path)
-        return f'{command} {self.as_args(only_used=only_used, only_changed=only_changed)}'
+        return f'{command} {self.as_args(used_only=used_only, exclude_defaults=exclude_defaults)}'
 
     def get_launch_command(self, strip_pwd=True, strip_python_path=False):
         import sys
@@ -240,20 +252,30 @@ class Args(object, metaclass=_AttrMeta):
         return parser
 
     @classmethod
-    def from_system_args(cls):
-        args = cls.get_parser().parse_args()
-        return cls.from_dict(vars(args))
+    def from_system_args(cls, defaults=None):
+        parser = cls.get_parser()
+        args = vars(parser.parse_args())
+        args = {k: v for k, v in args.items() if parser.get_default(k) != v} # TODO: make sure this is correct
+
+        if defaults:
+            # TODO: args needs to keep track of new defaults so that
+            #       print_command() does not print these defaults
+            defaults = {k: v for k, v in defaults.items() if parser.get_default(k) != v} # TODO: make sure this is correct
+            defaults.update(args)
+            args = defaults
+
+        return cls.from_dict(args)
 
     def print_reproduce_info(self):
         util.print_separator('REPRODUCE EXPERIMENT:')
         print('[COMMAND MINIMAL]:')
-        print('    $', self.as_command(only_used=True, only_changed=True))
+        print('    $', self.as_command(used_only=True, exclude_defaults=True))
         print()
         print('[COMMAND USED]:')
-        print('    $', self.as_command(only_used=True, only_changed=False))
+        print('    $', self.as_command(used_only=True, exclude_defaults=False))
         print()
         print('[COMMAND ALL]:')
-        print('    $', self.as_command(only_used=False, only_changed=False))
+        print('    $', self.as_command(used_only=False, exclude_defaults=False))
         print()
 
     def __str__(self):

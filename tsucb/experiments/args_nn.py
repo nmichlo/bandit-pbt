@@ -40,7 +40,7 @@ def val_range(a, b, number_type=float):
     def inner(x):
         x = number_type(x)
         if not (a <= x <= b):
-            raise argparse.ArgumentTypeError(f'{x} not in range [{a}, {b}]')
+            raise argparse.ArgumentTypeError(f'{x} not in inclusive range [{a}, {b}]')
         return x
     return inner
 
@@ -98,7 +98,7 @@ class ExperimentArgs(Args):
     experiment_name:          str             = field(default='unnamed-experiment')                                            # TODO
     experiment_id:            str             = field(default=str(uuid4()))                                            # TODO
     experiment_type:          str             = field(default='toy',       cast=str.lower, choices=EXPERIMENT_CHOICES) # used
-    experiment_seed:          int             = field(default=42)                                                      # used
+    experiment_seed:          int             = field(default=42,          cast=int_rng(0, 2**32-1))                                                      # used
     # CNN
     cnn_dataset:              str             = field(default='MNIST',     choices=DATASET_CHOICES)                    # used
     cnn_batch_size:           int             = field(default=32,          cast=int_rng(1, 1024))                      # used
@@ -272,13 +272,13 @@ class ExperimentArgs(Args):
         for i in tqdm(range(self.experiment_repeats), 'repeat', disable=os.environ.get("DISABLE_TQDM", False)):
             seed = self.experiment_seed + i
             if tracker is not None:
-                tracker.pre_train(self, i)
+                tracker.pre_run(self, i)
 
             # TRAIN
             population = self.do_training_run(seed=seed)
 
             if tracker is not None:
-                tracker.post_train(self, i, population)
+                tracker.post_run(self, i, population)
 
         if tracker is not None:
             tracker.post_exp(self)
@@ -287,9 +287,9 @@ class ExperimentArgs(Args):
 class ExperimentTracker(object):
     def pre_exp(self, exp: ExperimentArgs):
         pass
-    def pre_train(self, exp: ExperimentArgs, i: int):
+    def pre_run(self, exp: ExperimentArgs, i: int):
         pass
-    def post_train(self, exp: ExperimentArgs, i: int, population: Population):
+    def post_run(self, exp: ExperimentArgs, i: int, population: Population):
         pass
     def post_exp(self, exp: ExperimentArgs):
         pass

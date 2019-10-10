@@ -29,6 +29,14 @@ def seed(seed=42):
     import random
     import numpy as np
     import torch.backends.cudnn
+    # modify seed
+    mod_seed = seed % (2**32)  # max value allowed is 2**32-1
+    if seed != mod_seed:
+        from tqdm import tqdm
+        import traceback
+        tqdm.write(f'[WARNING] Seed must be in range [0, 2**32), modifying... {seed} % (2**32) = {mod_seed}')
+        tqdm.write(''.join(traceback.format_stack()[:-1]))
+        seed = mod_seed
     # python
     random.seed(seed)
     # numpy

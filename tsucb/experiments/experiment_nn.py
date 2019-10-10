@@ -23,7 +23,6 @@
 # LOAD ENV                                                                   #
 # ========================================================================== #
 
-
 if __name__ == '__main__':
     from tsucb.helper.util import load_dotenv
     load_dotenv()
@@ -34,15 +33,28 @@ if __name__ == '__main__':
 # ========================================================================== #
 
 
+import matplotlib.pyplot as plt
+import seaborn as sns
+import pandas as pd
+
 import os
+import traceback
 import comet_ml
 import numpy as np
-import matplotlib.pyplot as plt
 from tqdm import tqdm
 
 from tsucb.experiments.args_nn import ExperimentArgs, ExperimentTracker
-from tsucb.helper import util
+from tsucb.helper import util, defaults
 from tsucb.pbt.pbt import Population
+
+
+# ========================================================================== #
+# DEFAULTS                                                                   #
+# ========================================================================== #
+
+
+# SEABORN & PANDAS DEFAULTS
+defaults.set_defaults()
 
 
 # ========================================================================== #
@@ -55,17 +67,16 @@ class ExperimentTrackerNN(ExperimentTracker):
     def __init__(self):
         self.COMET = None
         # LOOP VARS
-        self.scores = None
-        self.converge_times = None
-        self.avg_scores_per_step = None
+        self._results: list = None
 
     @util.min_time_elapsed(1.0)
-    def log_step(self, i, score, converge_time):
+    def log_step(self, i, result):
+        s, c = result['max_score'], result['converge_time']
         self.COMET.log_metrics({
-            f'max_score': score,
-            f'converge_time': converge_time,
+            'max_score': s,
+            'converge_time': c,
         })
-        tqdm.write(f'[EXPERIMENT {i+1:05d}] score: {score:8f} converge_time: {converge_time:8f}')
+        tqdm.write(f'[EXPERIMENT {i+1:05d}] max_score={s:8f} converge_time={c:8f}')
 
     def pre_exp(self, exp: ExperimentArgs):
         self.COMET = comet_ml.Experiment(
@@ -82,81 +93,120 @@ class ExperimentTrackerNN(ExperimentTracker):
             exp.pbt_exploit_suggest,
             'pbt'
         ])
-        # log parameters
-        used_opts = exp.as_dict(only_used=True)
+        # LOG: parameters
+        used_opts = exp.as_dict(used_only=True)
         self.COMET.log_parameters(used_opts)
 
-        # log computed parameters
+        # LOG: computed parameters
         computed_opts = exp.get_dict_computed()
         self.COMET.log_others(computed_opts)
 
-        # AVERAGE VARS
-        self.scores = []
-        self.converge_times = []
-        self.avg_scores_per_step = np.zeros(exp.pbt_target_steps)
+        # INITIALISE:
+        self._results = []
 
-    def pre_train(self, exp: ExperimentArgs, i: int):
+    def pre_run(self, exp: ExperimentArgs, i: int):
         self.COMET.set_step(i)
 
-    def post_train(self, exp: ExperimentArgs, i: int, population: Population):
-        # Calculates the score as the index of the first occurrence greater than 1.18
+    def post_run(self, exp: ExperimentArgs, i: int, population: Population):
+        # CONVERGE TIME: The index of the first occurrence which has a score >= exp.tracker_converge_score
         _firsts = np.argmax(population.scores_history > exp.tracker_converge_score, axis=1)
-        _firsts[_firsts == 0] = exp.tracker_converge_score
-
-        # STEP SCORES
-        score = np.max(population.scores)
+        _firsts[_firsts == 0] = exp.pbt_target_steps
         converge_time = np.min(_firsts)
-        # AVERAGE SCORES
-        self.scores.append(score)
-        self.converge_times.append(converge_time)
-        self.avg_scores_per_step += population.scores_history.max(axis=0) * (1.0 / exp.experiment_repeats)
 
-        # TODO: append all scores, dont average
-        # TODO: append all scores, dont average
-        # TODO: append all scores, dont average
+        # ALL HISTORIES:
+        histories = [[
+            dict(
+                hyper_parameters=h.h,
+                score=h.p,
+                step=h.t,
+                exploit_id=h.exploit_id,
+                step_result=h.result,
+            ) for h in m.history
+        ] for m in population.members]
 
-        # LOG STEP
-        self.log_step(i, score, converge_time)
+        # ALL SCORES:
+        scores = np.array([[h.p for h in m.history] for m in population.members])
+
+        # APPEND RESULTS:
+        self._results.append({
+            'experiment_id': exp.experiment_id,
+            'run': i,
+            # final scores
+            'converge_time': converge_time,
+            'max_score': np.max(scores),
+            # all data:
+            'scores': scores,
+            'histories': histories
+        })
+
+        # LOG STEP | COMET & PRINT
+        self.log_step(i, self._results[-1])
 
     def post_exp(self, exp: ExperimentArgs):
-        # SCORES:       Maximum score acheived by each population
-        # CONVERGES:    Minimum number of steps to converge for each population
-        # SCORE_SEQ:    Average score at each time step
-        self.scores              = np.array(self.scores)
-        self.converge_times      = np.array(self.converge_times)
-        self.avg_scores_per_step = np.array(self.avg_scores_per_step)
+        util.print_separator('EXPERIMENT RESULTS:')
 
-        # TODO: compute, min, max, mean, confidence over all scores for each step.
-        # TODO: compute, min, max, mean, confidence over all scores for each step.
-        # TODO: compute, min, max, mean, confidence over all scores for each step.
+        # EXTRACT SCORES:
+        extracted_scores = np.array([r['max_score'] for r in self._results])
+        extracted_converge_times = np.array([r['converge_time'] for r in self._results])
+        # CALCULATE AVERAGES:
+        ave_max_score       = np.average(extracted_scores)
+        ave_converge_time   = np.average(extracted_converge_times)
+        ave_scores_conf = util.confidence_interval(extracted_scores, confidence=0.95)
+        ave_conv_time_conf = util.confidence_interval(extracted_converge_times, confidence=0.95)
+
+        # LOG:
+        self.COMET.log_metrics({
+            'ave_max_score': ave_max_score, 'ave_max_score_conf_95': ave_scores_conf,
+            'ave_converge_time': ave_converge_time, 'ave_converge_time_conf_95': ave_conv_time_conf,
+        })
+
+        # COMPUTE:
+        extracted_step_maxes = np.array([np.max(r["scores"], axis=0) for r in self._results])
+        mean_step_maxes = extracted_step_maxes.mean(axis=0)
 
         # LOG
-        ave_score       = np.average(self.scores)
-        ave_conv_t      = np.average(self.converge_times)
-        ave_scores_conf = util.confidence_interval(self.scores, confidence=0.95)
-        ave_conv_t_conf = util.confidence_interval(self.converge_times, confidence=0.95)
+        tqdm.write('[MAX SCORES PER STEP]:')
+        for i, run_maxes in enumerate(extracted_step_maxes):
+            tqdm.write(f'    {i}: {run_maxes.tolist()}')
+        tqdm.write(f'\n[RESULT] mean_step_maxes:   {mean_step_maxes.tolist()})')
+        tqdm.write(f'                            ±{[util.confidence_interval(step_maxes, confidence=0.95) for step_maxes in extracted_step_maxes.T]})')
+        tqdm.write(f'\n[RESULT] ave_max_score:     {ave_max_score:8f} (±{ave_scores_conf:8f})')
+        tqdm.write(f'[RESULT] ave_converge_time: {ave_converge_time:8f} (±{ave_conv_time_conf:8f})')
 
-        self.COMET.log_metrics({
-            'ave_max_score': ave_score, 'ave_max_score_confidence_95': ave_scores_conf,
-            'ave_converge_time': ave_conv_t, 'ave_converge_time_confidence_95': ave_conv_t_conf,
-        })
-        tqdm.write(f'[RESULT] ave_max_score:     {ave_score:8f} (±{ave_scores_conf:8f})')
-        tqdm.write(f'[RESULT] ave_converge_time: {ave_conv_t:8f} (±{ave_conv_t_conf:8f})\n')
+        try:
+            pass
+            df = pd.DataFrame({
+                'score': mean_step_maxes,
+                'step': np.arange(len(mean_step_maxes)),
+            })
+            plt.figure(figsize=(6, 3.75))
+            sns.lineplot(x='step', y='score', data=df, palette=sns.color_palette("GnBu", 1))
+            plt.show()
+        except Exception as e:
+            traceback.print_exc(e)
 
-        # LOG - PLOT
-        fig, ax = plt.subplots(1, 1)
-        ax.plot(self.avg_scores_per_step)
-        self.COMET.log_figure(f'Average Score Per Step (repeats={exp.experiment_repeats})', fig)
+        try:
+            # TODO machine dependant folder
+            np.savez_compressed('results.npz', dict(
+                results=self._results,
+                arguments=exp.as_dict(used_only=True, exclude_defaults=False)
+            ))
+            print('[SAVED]: results.npz')
+        except Exception as e:
+            traceback.print_exc(e)
 
         # END EXPERIMENT
         self.COMET.end()
 
-        # TODO: save results to disk
-        # TODO: save results to disk
-        # TODO: save results to disk
 
 if __name__ == '__main__':
-    experiment = ExperimentArgs.from_system_args()
+
+    experiment = ExperimentArgs.from_system_args(defaults=dict(
+        experiment_repeats=10,
+        pbt_members=50,
+        pbt_target_steps=12,
+        experiment_seed=np.random.randint(0, 2**32),  # [0, 2**32-1]
+    ))
 
     experiment.print_reproduce_info()
     experiment.print_args()
@@ -165,4 +215,3 @@ if __name__ == '__main__':
     experiment.do_experiment(
         tracker=ExperimentTrackerNN(),
     )
-
