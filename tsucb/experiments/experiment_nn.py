@@ -207,12 +207,25 @@ class ExperimentTrackerNN(ExperimentTracker):
 
 if __name__ == '__main__':
 
+
+
     experiment = ExperimentArgs.from_system_args(defaults=dict(
-        experiment_repeats=10,
-        pbt_members=50,
+        experiment_repeats=1,
         experiment_type='cnn',
-        pbt_target_steps=5*3,
         experiment_seed=np.random.randint(0, 2**32),  # [0, 2**32-1]
+
+        pbt_members=50,
+
+        cnn_step_divs=5,
+        pbt_target_steps=5*3,  # 3 epochs, split over 5 steps each.
+        # 0.65 minutes per epoch per member
+        # ie. 0.65 * 50 members * 5 epochs = 2.70 hours
+        #     0.65 * 50 members * 3 epochs = 1.62 hours
+        #     0.65 * 25 members * 5 epochs = 1.35 hours
+        #     0.65 * 25 members * 3 epochs = 0.81 hours
+        #     0.65 * 10 members * 5 epochs = 0.54 hours
+        #     0.65 * 10 members * 3 epochs = 0.33 hours
+
         comet_enable=False,
         pbt_print=True,
     ))
