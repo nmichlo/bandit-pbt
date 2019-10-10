@@ -22,6 +22,8 @@
 
 import argparse
 import types
+from pprint import pprint
+
 from typeguard import check_type
 from tsucb.helper import util
 
@@ -35,6 +37,21 @@ from tsucb.helper import util
 
 
 _NONE = object()
+
+
+# acts like a lazy property, but intended for use with the Args class
+class computed(object):
+    def __init__(self, func):
+        self.__name__ = func.__name__
+        self.__module__ = func.__module__
+        self.__doc__ = func.__doc__
+        self._func = func
+        self._value = _NONE
+
+    def __get__(self, obj, type=None):
+        if self._value is _NONE:
+            self._value = self._func(obj)
+        return self._value
 
 class field(object):
     def __init__(self, default=_NONE, cast=None, choices=None, required=False):
@@ -107,8 +124,14 @@ class _AttrMeta(type):
         cls._fields_ = fields
         cls._fields_public_ = {k: v for k, v in fields.items() if not k.startswith('_')}
         cls._fields_required_ = {k: v for k, v in cls._fields_public_.items() if v._required}
+        cls._fields_computed = {k: v for k, v in cls_fields.items() if isinstance(v, computed)}
 
-class Attrs(object, metaclass=_AttrMeta):
+        # properties = {k for k, v in cls._fields_computed.items() if isinstance(v, property)}
+        # if properties:
+        #     props_str = ', '.join(f'"{p}"' for p in properties)
+        #     print(f'WARNING: "{name}" has @property decorators: {props_str} did you mean @computed?')
+
+class Args(object, metaclass=_AttrMeta):
     __is_base_attr_class = True
 
     def __init__(self, **kwargs):
@@ -144,6 +167,19 @@ class Attrs(object, metaclass=_AttrMeta):
             items = self._filter_return_used_args(items)
         # RETURN
         return items
+
+    def get_dict_computed(self):
+        return {k: getattr(self, k) for k in self._fields_computed}
+
+    def print_dict_computed(self):
+        util.print_separator('COMPUTED VALUES:')
+        pprint(self.get_dict_computed(), width=100)
+        print()
+
+    def print_args(self, only_used=True, only_changed=False):
+        util.print_separator(f'ARGUMENTS: (used={only_used}, defaults={not only_changed})')
+        pprint(self.as_dict(only_used=only_used, only_changed=only_changed), width=100)
+        print()
 
     def _filter_return_used_args(self, items) -> dict:
         raise NotImplementedError('')
@@ -208,19 +244,17 @@ class Attrs(object, metaclass=_AttrMeta):
         args = cls.get_parser().parse_args()
         return cls.from_dict(vars(args))
 
-    def print_reproduce_command(self):
-        print(f'# {"="*96} #')
-        print(f'[HOST]: {util.get_hostname()}')
-        print()
-        print('[COMMAND MINIMAL]: used args minus defaults')
+    def print_reproduce_info(self):
+        util.print_separator('REPRODUCE EXPERIMENT:')
+        print('[COMMAND MINIMAL]:')
         print('    $', self.as_command(only_used=True, only_changed=True))
         print()
-        print('[COMMAND MINIMAL]: used args minus defaults')
+        print('[COMMAND USED]:')
         print('    $', self.as_command(only_used=True, only_changed=False))
         print()
-        print('[COMMAND MINIMAL]: used args minus defaults')
+        print('[COMMAND ALL]:')
         print('    $', self.as_command(only_used=False, only_changed=False))
-        print(f'# {"="*96} #')
+        print()
 
     def __str__(self):
         return self.__repr__()
@@ -231,3 +265,25 @@ class Attrs(object, metaclass=_AttrMeta):
 # ========================================================================= \#
 # END                                                                       \#
 # ========================================================================= \#
+
+
+if __name__ == '__main__':
+
+    class TestArgs(Args):
+        a: int    = field(default=2)
+        b: int    = field(default=3)
+        name: str = field(default='unnamed-experiment')
+
+        @computed
+        def prod(self):
+            return self.a * self.b
+
+        @property
+        def sum(self):
+            return self.a + self.b
+
+    print(TestArgs().prod)
+    print(TestArgs().sum)
+    print(TestArgs().get_dict_computed())
+
+

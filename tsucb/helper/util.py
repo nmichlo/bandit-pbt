@@ -153,7 +153,7 @@ def print_module_class_heirarchy(module, root_cls_name):
 # ========================================================================= #
 
 
-def print_separator(text, width=100, char_v='#', char_h='=', char_corners=None):
+def print_separator(text, header=None, width=100, char_v='#', char_h='=', char_corners=None):
     """
     function wraps text in a ascii box.
     """
@@ -165,16 +165,26 @@ def print_separator(text, width=100, char_v='#', char_h='=', char_corners=None):
     import pprint
     from tqdm import tqdm
 
+    def append_wrapped(text):
+        for line in text.splitlines():
+            for wrapped in (textwrap.wrap(line, w, tabsize=4) if line.strip() else ['']):
+                lines.append(f'{char_v} {wrapped:{w}s} {char_v}')
+
     w = width-4
     lines = []
-    lines.append(f'\n{char_corners} {char_h*w} {char_corners}')
+    sep = f'{char_corners} {char_h*w} {char_corners}'
+    lines.append(f'\n{sep}')
+    if header:
+        append_wrapped(header)
+        lines.append(sep)
     if type(text) != str:
         text = pprint.pformat(text, width=w)
-    for line in text.splitlines():
-        for wrapped in (textwrap.wrap(line, w, tabsize=4) if line.strip() else ['']):
-            lines.append(f'{char_v} {wrapped:{w}s} {char_v}')
-    lines.append(f'{char_corners} {char_h*w} {char_corners}\n')
+    append_wrapped(text)
+    lines.append(f'{sep}\n')
     tqdm.write('\n'.join(lines))
+
+def print_box(text, header=None, width=100):
+    print_separator(text, header=header, width=width, char_v='|', char_h='-', char_corners='#')
 
 
 # ========================================================================= #
@@ -222,7 +232,9 @@ def load_dotenv():
     values = {k: v for k, v in values_all.items() if not (k.lower().startswith('http') or 'key' in k.lower())}
     # PRINT
     string = '\n'.join(f'{k}: {v}' for k, v in values.items())
-    print_separator(f'[LOADED ENVIRONMENT]: {env_path}\n[HIDDEN KEYS]: {", ".join(set(values_all)-set(values))}\n\n{string}')
+    print_box(
+        f'[LOADED ENVIRONMENT]: {env_path}\n[HIDDEN KEYS]: {", ".join(set(values_all)-set(values))}\n\n{string}',
+    )
     return values
 
 

@@ -23,7 +23,8 @@ import argparse
 import os
 from uuid import uuid4
 from tsucb.helper import util
-from tsucb.helper.attrs import field, Attrs
+from tsucb.helper.args import field, Args, computed
+from tsucb.helper.util import print_separator
 from tsucb.pbt.pbt import IExploiter, Population
 from tsucb.pbt.strategies import *
 
@@ -90,11 +91,12 @@ EXPERIMENT_CHOICES = [
     'cnn'
 ]
 
-class ExperimentArgs(Attrs):
+class ExperimentArgs(Args):
 
     # EXPERIMENT
     experiment_repeats:       int             = field(default=1,           cast=int_rng(1, INF))                       # used
-    experiment_name:          str             = field(default=str(uuid4()))                                            # TODO
+    experiment_name:          str             = field(default='unnamed-experiment')                                            # TODO
+    experiment_id:            str             = field(default=str(uuid4()))                                            # TODO
     experiment_type:          str             = field(default='toy',       cast=str.lower, choices=EXPERIMENT_CHOICES) # used
     experiment_seed:          int             = field(default=42)                                                      # used
     # CNN
@@ -153,19 +155,13 @@ class ExperimentArgs(Attrs):
 
     # >>> COMPUTED VARIABLES <<< #
 
-    @property
+    @computed
     def pbt_exploit_copies_h(self):
         return self.experiment_type != 'toy'
 
-    @property
+    @computed
     def tracker_converge_score(self):
         return 1.18 if self.experiment_type == 'toy' else 99.2
-
-    def get_dict_computed(self):
-        return dict(
-            pbt_exploit_copies_h=self.pbt_exploit_copies_h,
-            tracker_converge_score=self.tracker_converge_score,
-        )
 
     # >>> FACTORY FUNCTIONS <<< #
 
@@ -243,7 +239,8 @@ class ExperimentArgs(Attrs):
                 steps_till_ready=self.pbt_members_ready_after,
                 debug=self.debug,
                 warn_exploit_self=True,
-            )
+                exploit_copies_h=self.pbt_exploit_copies_h,
+            ),
         )
 
     # >>> EXPERIMENT RUNNERS <<< #
@@ -263,24 +260,39 @@ class ExperimentArgs(Attrs):
         )
         return population
 
-    def do_experiment(self, cb_pre_exp=None, cb_pre_train=None, cb_post_train=None, cb_post_exp=None):
-        if callable(cb_pre_exp):
-            cb_pre_exp(self)
+    def do_experiment(self, tracker=None):
+        assert tracker is None or isinstance(tracker, ExperimentTracker), 'tracker is not an instance of ExperimentTracker'
+
+        print_separator('RUNNING EXPERIMENT:')
+
+        if tracker is not None:
+            tracker.pre_exp(self)
 
         # EXPERIMENT
         for i in tqdm(range(self.experiment_repeats), 'repeat', disable=os.environ.get("DISABLE_TQDM", False)):
             seed = self.experiment_seed + i
-            if callable(cb_pre_train):
-                cb_pre_train(self, i)
+            if tracker is not None:
+                tracker.pre_train(self, i)
 
             # TRAIN
             population = self.do_training_run(seed=seed)
 
-            if callable(cb_post_train):
-                cb_post_train(self, i, population)
+            if tracker is not None:
+                tracker.post_train(self, i, population)
 
-        if callable(cb_post_exp):
-            cb_post_exp(self)
+        if tracker is not None:
+            tracker.post_exp(self)
+
+
+class ExperimentTracker(object):
+    def pre_exp(self, exp: ExperimentArgs):
+        pass
+    def pre_train(self, exp: ExperimentArgs, i: int):
+        pass
+    def post_train(self, exp: ExperimentArgs, i: int, population: Population):
+        pass
+    def post_exp(self, exp: ExperimentArgs):
+        pass
 
 
 # ========================================================================= #

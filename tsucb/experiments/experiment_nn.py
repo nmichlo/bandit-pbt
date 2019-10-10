@@ -40,8 +40,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
-from tsucb.experiments.args_nn import ExperimentArgs
-from tsucb.helper.util import print_separator
+from tsucb.experiments.args_nn import ExperimentArgs, ExperimentTracker
 from tsucb.helper import util
 from tsucb.pbt.pbt import Population
 
@@ -51,7 +50,7 @@ from tsucb.pbt.pbt import Population
 # ========================================================================== #
 
 
-class ExperimentTrackerNN(object):
+class ExperimentTrackerNN(ExperimentTracker):
 
     def __init__(self):
         self.COMET = None
@@ -84,13 +83,11 @@ class ExperimentTrackerNN(object):
             'pbt'
         ])
         # log parameters
-        used_opts = exp.to_dict(used_only=True)
-        print_separator(used_opts)
+        used_opts = exp.as_dict(only_used=True)
         self.COMET.log_parameters(used_opts)
 
         # log computed parameters
         computed_opts = exp.get_dict_computed()
-        print_separator(computed_opts)
         self.COMET.log_others(computed_opts)
 
         # AVERAGE VARS
@@ -158,18 +155,14 @@ class ExperimentTrackerNN(object):
         # TODO: save results to disk
         # TODO: save results to disk
 
-
-
 if __name__ == '__main__':
     experiment = ExperimentArgs.from_system_args()
-    experiment.print_reproduce_command()
 
-    tracker = ExperimentTrackerNN()
+    experiment.print_reproduce_info()
+    experiment.print_args()
+    experiment.print_dict_computed()
 
     experiment.do_experiment(
-        cb_pre_exp=tracker.pre_exp,
-        cb_pre_train=tracker.pre_train,
-        cb_post_train=tracker.post_train,
-        cb_post_exp=tracker.post_exp,
+        tracker=ExperimentTrackerNN(),
     )
 
