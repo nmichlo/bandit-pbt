@@ -3,10 +3,15 @@ import time
 from typing import NamedTuple
 import numpy as np
 import matplotlib.pyplot as plt
+import seaborn as sns
+import pandas as pd
 
-from tsucb.helper import util
+from tsucb.helper import util, defaults
 from tsucb.pbt.strategies import *
 from tsucb.pbt.pbt import Member, Population
+
+# SEABORN + PANDAS
+defaults.set_defaults()
 
 
 # ========================================================================= #

@@ -254,6 +254,14 @@ def simplify_path(path, strip_pwd_=False, strip_python_path_=False):
         path = strip_pwd(path)
     return path
 
+def get_hostname(replace_dots=False):
+    import socket
+    name = socket.gethostname()
+    if replace_dots:
+        name = name.replace('.', '_')
+    return name
+
+
 # ========================================================================= #
 # END                                                                       #
 # ========================================================================= #

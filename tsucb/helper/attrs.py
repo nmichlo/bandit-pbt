@@ -210,6 +210,8 @@ class Attrs(object, metaclass=_AttrMeta):
 
     def print_reproduce_command(self):
         print(f'# {"="*96} #')
+        print(f'[HOST]: {util.get_hostname()}')
+        print()
         print('[COMMAND MINIMAL]: used args minus defaults')
         print('    $', self.as_command(only_used=True, only_changed=True))
         print()

@@ -98,7 +98,7 @@ MUTATIONS = {
 
 CHECKPOINT_MAP = {}
 if __name__ == '__main__':
-    CHECKPOINT_DIR = util.make_empty_dir('./checkpoints')
+    CHECKPOINT_DIR = util.make_empty_dir(f'./checkpoints/{util.get_hostname(replace_dots=True)}')
     tqdm.write(f'[CLEARED CHECKPOINT DIR]: {CHECKPOINT_DIR}')
 
 
