@@ -165,7 +165,7 @@ def run_dual_test():
         "print_scores": False,
 
         # redo
-        'RESET': False
+        'RESET': True
     }
 
     make_exploit_strategy = lambda: ExploitStrategyTruncationSelection()
@@ -210,11 +210,13 @@ def run_dual_test():
 
     # plot for old code
     plt.show()
+    plt.figure(figsize=(6, 3.75))
     sns.lineplot(x="Step", y="Score", hue="Suggest", style='Epsilon', legend=False, data=aggregated, palette=sns.color_palette("GnBu", 3))
     # >>> MAKE SURE THIS MATCHES AS ORDER CAN CHANGE <<<
     # >>> MAKE SURE THIS MATCHES AS ORDER CAN CHANGE <<<
     # >>> MAKE SURE THIS MATCHES AS ORDER CAN CHANGE <<<
     plt.legend(labels=list(info[info_keys[0]] for info, _ in exploiters))
+    plt.savefig('toy_results.png', dpi=400, bbox_inches="tight")
     plt.show()
 
 

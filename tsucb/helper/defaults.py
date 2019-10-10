@@ -39,6 +39,8 @@ def set_defaults(seaborn=True, pandas=True):
                 'grid.color': '.9',
                 'axes.edgecolor': '.1',
                 'text.color': '.1',
+                'axes.spines.right': False,
+                'axes.spines.top': False,
                 # 'font.serif': ['Times New Roman']
             },
         )
