@@ -105,6 +105,10 @@ class ExperimentArgs(Args):
     cnn_batch_size:           int             = field(default=32,          cast=int_rng(1, 1024))                      # used
     cnn_use_cpu:              bool            = field(default=False)                                                   # used
     cnn_steps_per_epoch:      int             = field(default=5, cast=int_rng(1, 1000))                                # used
+    cnn_lr_min:               float           = field(default=0.0001, cast=flt_rng(0, 1))                              # used
+    cnn_lr_max:               float           = field(default=0.1,    cast=flt_rng(0, 1))                              # used
+    cnn_momentum_min:         float           = field(default=0.01,   cast=flt_rng(0, 1))                              # used
+    cnn_momentum_max:         float           = field(default=0.99,   cast=flt_rng(0, 1))                              # used
     # PBT
     pbt_print:                bool            = field(default=False)                                                   # used
     pbt_target_steps:         int             = field(default=15,          cast=int_rng(1, INF))                       # used
@@ -245,12 +249,12 @@ class ExperimentArgs(Args):
                     model='example', loss='NLLLoss', optimizer='SGD',
                     dataset=u('cnn_dataset'),
                     model_options={}, dataset_options={}, loss_options={}, optimizer_options=dict(
-                        lr=random_log_uniform(0.0001, 0.1),
-                        momentum=random_uniform(0.01, 0.99),
+                        lr=random_log_uniform(self.cnn_lr_min, self.cnn_lr_max),
+                        momentum=random_uniform(self.cnn_momentum_min, self.cnn_momentum_max),
                     ),
                     mutations={
-                        'optimizer_options/lr':       ('uniform_perturb', 0.5,  1.8, 0.0001, 0.10),  # eg. 0.8 < 1/1.2  shifts exploration towards getting smaller
-                        'optimizer_options/momentum': ('uniform_perturb', 0.5, 2.00, 0.0100, 0.99),  #     0.8 = 1/1.25 is balanced
+                        'optimizer_options/lr':       ('uniform_perturb', 0.5,  1.8, self.cnn_lr_min, self.cnn_lr_max),              # eg. 0.8 < 1/1.2  shifts exploration towards getting smaller
+                        'optimizer_options/momentum': ('uniform_perturb', 0.5, 2.00, self.cnn_momentum_min, self.cnn_momentum_max),  #     0.8 = 1/1.25 is balanced
                     },
                     train_images_per_step=60000//u('cnn_steps_per_epoch'),
                     batch_size=u('cnn_batch_size'),
@@ -344,3 +348,6 @@ class ExperimentTracker(object):
 # ========================================================================= #
 # END                                                                       #
 # ========================================================================= #
+
+if __name__ == '__main__':
+    ExperimentArgs().print_reproduce_info()
