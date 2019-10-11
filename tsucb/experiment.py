@@ -22,7 +22,7 @@
 # ========================================================================== #
 # LOAD ENV                                                                   #
 # ========================================================================== #
-from uuid import uuid4
+
 
 if __name__ == '__main__':
     from tsucb.helper.util import load_dotenv
@@ -33,6 +33,7 @@ if __name__ == '__main__':
 # IMPORTS                                                                    #
 # ========================================================================== #
 
+from uuid import uuid4
 
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -44,7 +45,7 @@ import comet_ml
 import numpy as np
 from tqdm import tqdm
 
-from tsucb.experiments.experiment_args import ExperimentArgs, ExperimentTracker
+from tsucb.experiment_args import ExperimentArgs, ExperimentTracker
 from tsucb.helper import util, defaults
 from tsucb.pbt.pbt import Population
 
@@ -180,7 +181,7 @@ class ExperimentTrackerConvergence(ExperimentTracker):
         tqdm.write(f'\n[RESULT] mean_step_maxes:   {mean_step_maxes.tolist()})')
         tqdm.write(f'                            ±{[util.confidence_interval(step_maxes, confidence=0.95) for step_maxes in extracted_step_maxes.T]})')
         tqdm.write(f'\n[RESULT] ave_max_score:     {ave_max_score:8f} (±{ave_scores_conf:8f})')
-        tqdm.write(f'[RESULT] ave_converge_time: {ave_converge_time:8f} (±{ave_conv_time_conf:8f})')
+        tqdm.write(f'[RESULT] ave_converge_time: {ave_converge_time:8f} (±{ave_conv_time_conf:8f})\n')
 
         # try:
         #     df = pd.DataFrame({
@@ -199,9 +200,11 @@ class ExperimentTrackerConvergence(ExperimentTracker):
                 results=self._results,
                 arguments=exp.as_dict(used_only=True, exclude_defaults=False)
             ))
-            tqdm.write(f'[SAVED]: {result_file}')
+            tqdm.write(f'[SAVED]: {result_file}\n')
         except Exception as e:
             traceback.print_exc(e)
+
+        util.print_separator('EXPERIMENT ENDED!')
 
         # END EXPERIMENT
         self.COMET.end()
@@ -223,7 +226,7 @@ if __name__ == '__main__':
         comet_enable=True,
         # DO NOT CHANGE - EXPERIMENT - THESE ARE ALREADY DEFAULTS:
         experiment_type='cnn',
-        cnn_steps_per_epoch=3,
+        cnn_steps_per_epoch=5,
         pbt_target_steps=3*5,  # 3 steps per epoch for 5 epochs
         pbt_exploit_strategy='ts',
         # ALLOW CHANGES:
@@ -235,3 +238,10 @@ if __name__ == '__main__':
     experiment.do_experiment(
         tracker=ExperimentTrackerConvergence(),
     )
+
+    # [COMMAND MINIMAL]:
+    #     $ workspace/research/improving-pbt/tsucb/experiment.py --experiment-name="random" --pbt-print --comet-enable
+    # [COMMAND USED]:
+    #     $ workspace/research/improving-pbt/tsucb/experiment.py --experiment-repeats="1" --experiment-name="random" --experiment-id="c59f5226-fb04-46a3-ae31-0a49e9aa555f" --experiment-type="cnn" --experiment-seed="2195761148" --cnn-dataset="MNIST" --cnn-batch-size="32" --cnn-steps-per-epoch="5" --pbt-print --pbt-target-steps="15" --pbt-members="25" --pbt-members-ready-after="2" --pbt-exploit-strategy="ts" --pbt-exploit-suggest="random" --strategy-ts-ratio-top="0.2" --strategy-ts-ratio-bottom="0.2" --comet-enable --comet-project-name="unnamed-project"
+    # [COMMAND ALL]:
+    #     $ workspace/research/improving-pbt/tsucb/experiment.py --experiment-repeats="1" --experiment-name="random" --experiment-id="c59f5226-fb04-46a3-ae31-0a49e9aa555f" --experiment-type="cnn" --experiment-seed="2195761148" --cnn-dataset="MNIST" --cnn-batch-size="32" --cnn-steps-per-epoch="5" --pbt-print --pbt-target-steps="15" --pbt-members="25" --pbt-members-ready-after="2" --pbt-exploit-strategy="ts" --pbt-exploit-suggest="random" --suggest-ucb-incr-mode="exploited" --suggest-ucb-c="1.0" --suggest-softmax-temp="1.0" --suggest-eps="0.75" --strategy-ts-ratio-top="0.2" --strategy-ts-ratio-bottom="0.2" --strategy-tt-confidence="0.95" --comet-enable --comet-project-name="unnamed-project"
