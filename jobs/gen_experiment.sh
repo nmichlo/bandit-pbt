@@ -30,7 +30,7 @@ chmod +x "$FILE"
 # %A is the array job id
 # %a is the array task id
 
-RUN_SCRIPT="sbatch --array=1:{slurm-array-size} -n1 -p ha -J '{experiment-name}' -o 'logs/{experiment-name}_%j_%A_%a.log' --wrap"
+RUN_SCRIPT="sbatch --array=1-{slurm-array-size} -n1 -p ha -J '{experiment-name}' -o 'logs/{experiment-name}_%A_%a.log' --wrap"
 
 # ============================================================= #
 # EXPERIMENT COMMAND                                            #

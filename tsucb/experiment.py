@@ -33,11 +33,6 @@ if __name__ == '__main__':
 # IMPORTS                                                                    #
 # ========================================================================== #
 
-from uuid import uuid4
-
-import matplotlib.pyplot as plt
-import seaborn as sns
-import pandas as pd
 
 import os
 import traceback
@@ -222,17 +217,17 @@ if __name__ == '__main__':
 
     experiment = ExperimentArgs.from_system_args(defaults=dict(
         # DO NOT CHANGE - MISC
-        pbt_print=True,
-        comet_enable=True,
+        pbt_print=False,
+        comet_enable=False,
         # DO NOT CHANGE - EXPERIMENT - THESE ARE ALREADY DEFAULTS:
         experiment_type='cnn',
         cnn_steps_per_epoch=5,
-        pbt_target_steps=3*5,  # 3 steps per epoch for 5 epochs
+        pbt_target_steps=5*4,  # 5 steps per epoch for 4 epochs
         pbt_exploit_strategy='ts',
         # ALLOW CHANGES:
         experiment_name='random',
         pbt_members=25,
-        pbt_exploit_suggest='random',
+        pbt_exploit_suggest='ran',
     ))
 
     experiment.do_experiment(
