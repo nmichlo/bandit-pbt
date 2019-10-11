@@ -96,6 +96,8 @@ class ExperimentTrackerConvergence(ExperimentTracker):
             parse_args=False,  # command line args
         )
 
+        self.COMET.set_name(exp.experiment_name)
+
         # LOG
         exp.print_reproduce_info()
         exp.print_args()
