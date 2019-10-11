@@ -206,12 +206,12 @@ def print_box(text, header=None, width=100):
 # ========================================================================= #
 
 
-def min_time_elapsed(func_or_seconds, seconds=None):
+def min_time_elapsed(func_or_seconds, seconds=None, wait_for_first=True):
     """
     Decorator that only runs a function if the minimum time has elapsed since the last run.
     """
     import time
-    last_time = None
+    last_time = None if wait_for_first else 0
     def decorator(func):
         def inner(*args, **kwargs):
             nonlocal last_time

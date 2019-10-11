@@ -66,7 +66,8 @@ class ExperimentTrackerConvergence(ExperimentTracker):
         # LOOP VARS
         self._results: list = None
 
-    # @util.min_time_elapsed(1.0)
+    # just in case we run this on the toy example... wait 60 seconds between calls
+    @util.min_time_elapsed(60.0, wait_for_first=False)
     def log_step(self, i, result):
         s, c = result['max_score'], result['converge_time']
 
