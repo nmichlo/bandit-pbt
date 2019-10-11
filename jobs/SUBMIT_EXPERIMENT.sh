@@ -1,4 +1,4 @@
-!/bin/bash
+#!/bin/bash
 
 # UCB: STEPPED INSTEAD OF EXPLOITED
 sbatch --array=1-10 -n1 -p ha -J '15_ucbS' -o 'logs/15_ucb_%A_%a.log' --wrap 'python -m tsucb.experiment  --comet-enable  --pbt-print  --experiment-name="15_ucbS"  --pbt-members="15"  --pbt-exploit-suggest="ucb" --suggest_ucb_incr_mode="stepped"'
