@@ -109,6 +109,12 @@ def argsorted_random_ties(a, key=None):
     else:
         return sorted_random_ties(indices, key=lambda i: key(a[i]))
 
+def make_dir(path):
+    import os
+    # make sure the folder is empty and exists
+    os.makedirs(path, exist_ok=True)
+    return path
+
 def make_empty_dir(path):
     import os
     # make sure the folder is empty and exists

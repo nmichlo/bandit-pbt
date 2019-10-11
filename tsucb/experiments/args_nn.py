@@ -22,6 +22,7 @@
 import argparse
 import atexit
 import os
+from datetime import datetime
 from uuid import uuid4
 from tsucb.helper import util
 from tsucb.helper.args import field, Args, computed
@@ -95,18 +96,18 @@ class ExperimentArgs(Args):
 
     # EXPERIMENT
     experiment_repeats:       int             = field(default=1,           cast=int_rng(1, INF))                       # used
-    experiment_name:          str             = field(default='unnamed-experiment')                                            # TODO
-    experiment_id:            str             = field(default=str(uuid4()))                                            # TODO
-    experiment_type:          str             = field(default='toy',       cast=str.lower, choices=EXPERIMENT_CHOICES) # used
-    experiment_seed:          int             = field(default=42,          cast=int_rng(0, 2**32-1))                                                      # used
+    experiment_name:          str             = field(default='unnamed-experiment')                                    # used
+    experiment_id:            str             = field(default=str(uuid4()))                                            # used
+    experiment_type:          str             = field(default='cnn',       cast=str.lower, choices=EXPERIMENT_CHOICES) # used
+    experiment_seed:          int             = field(default=np.random.randint(0, 2**32), cast=int_rng(0, 2**32-1))                                                      # used
     # CNN
     cnn_dataset:              str             = field(default='MNIST',     choices=DATASET_CHOICES)                    # used
     cnn_batch_size:           int             = field(default=32,          cast=int_rng(1, 1024))                      # used
     cnn_use_cpu:              bool            = field(default=False)                                                   # used
-    cnn_step_divs:            int             = field(default=5,           cast=int_rng(1, 1000))                      # used
+    cnn_steps_per_epoch:      int             = field(default=5, cast=int_rng(1, 1000))                                # used
     # PBT
     pbt_print:                bool            = field(default=False)                                                   # used
-    pbt_target_steps:         int             = field(default=10,          cast=int_rng(1, INF))                       # used
+    pbt_target_steps:         int             = field(default=15,          cast=int_rng(1, INF))                       # used
     pbt_members:              int             = field(default=25,          cast=int_rng(1, INF))                       # used
     pbt_members_ready_after:  int             = field(default=2,           cast=int_rng(1, INF))                       # used
     pbt_exploit_strategy:     str             = field(default='ts',        cast=str.lower, choices=STRATEGY_CHOICES)   # used
@@ -127,14 +128,16 @@ class ExperimentArgs(Args):
     # EXTRA
     debug:                    bool            = field(default=False)                                                   # used
     # COMET
-    comet_enable:             bool            = field(default=False)                                                   # TODO
-    comet_project_name:       str             = field(default='unnamed-project')                                                    # used
+    comet_enable:             bool            = field(default=False)                                                   # used
+    comet_project_name:       str             = field(default='unnamed-project')                                       # used
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self._use_suggest_field, self._used_suggest_fields = make_usage_tracker(self)
         self._use_strategy_field, self._used_strategy_fields = make_usage_tracker(self)
         self._use_cnn_field, self._used_cnn_fields = make_usage_tracker(self)
+        # other
+        self._start_time_str = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
 
     # -------- #
     # INSTANCE #
@@ -156,31 +159,37 @@ class ExperimentArgs(Args):
     # >>> COMPUTED VARIABLES <<< #
 
     @computed
-    def pbt_exploit_copies_h(self):
+    def pbt_exploit_copies_h(self) -> bool:
         return self.experiment_type != 'toy'
 
     @computed
-    def tracker_converge_score(self):
+    def tracker_converge_score(self) -> float:
         return 1.18 if self.experiment_type == 'toy' else 99.2
 
     # PROPERTIES
 
     @computed
-    def results_dir(self):
+    def results_dir(self) -> str:
+        # experiment_id should ALWAYS be unique
         return f'./temp/results/{self.experiment_name}/{self.experiment_id}'
 
     @computed
-    def pbt_show_progress(self):
+    def pbt_show_progress(self) -> bool:
         return self.experiment_type == 'cnn'
 
     @computed(experiment_type='cnn')
-    def checkpoint_dir(self):
-        return f'./temp/checkpoints/{util.get_hostname(replace_dots=True)}/{self.experiment_name}/{self.experiment_id}'
+    def checkpoint_dir(self) -> Optional[str]:
+        # experiment_id should ALWAYS be unique
+        return f'./temp/checkpoints/{self.experiment_name}/{util.get_hostname(replace_dots=True)}/{self.experiment_id}'
 
     @computed(experiment_type='cnn')
-    def path_provider(self):
+    def path_provider(self) -> Optional[object]:
         from tsucb.pbt.examples.pbt_local_mnist_example import PathProvider
         return PathProvider(directory=self.checkpoint_dir)
+
+    @computed
+    def start_time_str(self) -> str:
+        return self._start_time_str
 
     # >>> FACTORY FUNCTIONS <<< #
 
@@ -241,7 +250,7 @@ class ExperimentArgs(Args):
                         'optimizer_options/lr':       ('uniform_perturb', 0.5,  1.8, 0.0001, 0.10),  # eg. 0.8 < 1/1.2  shifts exploration towards getting smaller
                         'optimizer_options/momentum': ('uniform_perturb', 0.5, 2.00, 0.0100, 0.99),  #     0.8 = 1/1.25 is balanced
                     },
-                    train_images_per_step=60000//u('cnn_step_divs'),
+                    train_images_per_step=60000//u('cnn_steps_per_epoch'),
                     batch_size=u('cnn_batch_size'),
                     use_gpu=not u('cnn_use_cpu'),
                     num_workers=2,

@@ -22,6 +22,7 @@
 # ========================================================================== #
 # LOAD ENV                                                                   #
 # ========================================================================== #
+from uuid import uuid4
 
 if __name__ == '__main__':
     from tsucb.helper.util import load_dotenv
@@ -193,11 +194,12 @@ class ExperimentTrackerNN(ExperimentTracker):
         #     traceback.print_exc(e)
 
         try:
-            np.savez_compressed(os.path.join(exp.results_dir, 'results.npz'), dict(
+            result_file = os.path.join(util.make_dir(exp.results_dir), f'results_{exp.start_time_str}_{exp.experiment_name}_{experiment.experiment_id}.npz')
+            np.savez_compressed(result_file, dict(
                 results=self._results,
                 arguments=exp.as_dict(used_only=True, exclude_defaults=False)
             ))
-            tqdm.write(f'[SAVED]: {os.path.join(exp.results_dir, "results.npz")}')
+            tqdm.write(f'[SAVED]: {result_file}')
         except Exception as e:
             traceback.print_exc(e)
 
@@ -207,27 +209,27 @@ class ExperimentTrackerNN(ExperimentTracker):
 
 if __name__ == '__main__':
 
-
+    # 0.65 minutes per epoch per member
+    # ie. 0.65 * 50 members * 5 epochs = 2.70 hours
+    #     0.65 * 50 members * 3 epochs = 1.62 hours
+    #     0.65 * 25 members * 5 epochs = 1.35 hours
+    #     0.65 * 25 members * 3 epochs = 0.81 hours
+    #     0.65 * 10 members * 5 epochs = 0.54 hours
+    #     0.65 * 10 members * 3 epochs = 0.33 hours
 
     experiment = ExperimentArgs.from_system_args(defaults=dict(
-        experiment_repeats=1,
-        experiment_type='cnn',
-        experiment_seed=np.random.randint(0, 2**32),  # [0, 2**32-1]
-
-        pbt_members=50,
-
-        cnn_step_divs=5,
-        pbt_target_steps=5*3,  # 3 epochs, split over 5 steps each.
-        # 0.65 minutes per epoch per member
-        # ie. 0.65 * 50 members * 5 epochs = 2.70 hours
-        #     0.65 * 50 members * 3 epochs = 1.62 hours
-        #     0.65 * 25 members * 5 epochs = 1.35 hours
-        #     0.65 * 25 members * 3 epochs = 0.81 hours
-        #     0.65 * 10 members * 5 epochs = 0.54 hours
-        #     0.65 * 10 members * 3 epochs = 0.33 hours
-
-        comet_enable=False,
+        # DO NOT CHANGE - MISC
         pbt_print=True,
+        comet_enable=True,
+        # DO NOT CHANGE - EXPERIMENT - THESE ARE ALREADY DEFAULTS:
+        experiment_type='cnn',
+        cnn_steps_per_epoch=3,
+        pbt_target_steps=3*5,  # 3 steps per epoch for 5 epochs
+        pbt_exploit_strategy='ts',
+        # ALLOW CHANGES:
+        experiment_name='random',
+        pbt_members=25,
+        pbt_exploit_suggest='random',
     ))
 
     experiment.do_experiment(
