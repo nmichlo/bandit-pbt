@@ -20,7 +20,6 @@
 
 
 import os as _os
-from cachier import cachier as _cachier, pickle_core as _cachier_pickle_core
 from tqdm import tqdm
 
 
@@ -30,17 +29,11 @@ from tqdm import tqdm
 
 DATA_DIR = _os.path.expanduser(_os.getenv('DATA_DIR', '~/workspace/data'))
 
-# Change cache directory
-_cachier_pickle_core.CACHIER_DIR = _os.path.join(DATA_DIR, 'cachier')
-_cachier_pickle_core.EXPANDED_CACHIER_DIR = _os.path.expanduser(_cachier_pickle_core.CACHIER_DIR)
-
-
 # ========================================================================= #
 # NORMALISATION                                                             #
 # ========================================================================= #
 
 
-@_cachier()
 def cal_dataset_mean_std(dataset_cls, batch_size=16):
     # IMPORTS
     import torch.utils.data
@@ -65,6 +58,25 @@ def cal_dataset_mean_std(dataset_cls, batch_size=16):
 
     std = (mean2 - mean ** 2) ** 0.5
     return mean.detach().numpy(), std.detach().numpy()
+
+
+def get_dataset_mean_std(dataset_cls, batch_size=16):
+    import torchvision.datasets
+    import numpy as np
+    # DATASETS: (mean, std)
+    means_stds = {
+        torchvision.datasets.MNIST: (np.array([0.13066052]), np.array([0.30810773])),
+        torchvision.datasets.mnist.FashionMNIST: (np.array([0.28604054]), np.array([0.35302413])),
+    }
+    if dataset_cls in means_stds:
+        return means_stds[dataset_cls]
+    # NOT FOUND...
+    tqdm.write(f'\n[NO DATASET NORM] {dataset_cls} CALCULATING...')
+    mean, std = cal_dataset_mean_std(dataset_cls, batch_size=batch_size)
+    tqdm.write(f'[NO DATASET NORM] Please add the following to: get_dataset_mean_std(...)')
+    tqdm.write(f'                  mean={mean}')
+    tqdm.write(f'                  std={std}\n')
+    exit(1)
 
 # ========================================================================= #
 # LOAD                                                                      #
@@ -92,7 +104,7 @@ def get_datasets(dataset_name):
     dataset_cls = get_dataset_class(dataset_name)
     # Datasets are not threadsafe
     # with FileLock(f"{DATA_DIR}/data.lock"):
-    mean, std = cal_dataset_mean_std(dataset_cls)
+    mean, std = get_dataset_mean_std(dataset_cls)
     transform = transforms.Compose([
         transforms.ToTensor(),
         transforms.Normalize(mean, std),
