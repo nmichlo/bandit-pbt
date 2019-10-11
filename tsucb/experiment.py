@@ -62,17 +62,26 @@ defaults.set_defaults()
 class ExperimentTrackerConvergence(ExperimentTracker):
 
     def __init__(self):
-        self.COMET = None
+        self.COMET: comet_ml.Experiment = None
         # LOOP VARS
         self._results: list = None
 
-    @util.min_time_elapsed(1.0)
+    # @util.min_time_elapsed(1.0)
     def log_step(self, i, result):
         s, c = result['max_score'], result['converge_time']
+
         self.COMET.log_metrics({
             'max_score': s,
             'converge_time': c,
-        })
+        }, epoch=i, step=None)
+
+        # CAREFUL, THIS IS REALLY EXPENSIVE IN TERMS OF THE COMET.ML API
+        # CAREFUL, THIS IS REALLY EXPENSIVE IN TERMS OF THE COMET.ML API
+        # CAREFUL, THIS IS REALLY EXPENSIVE IN TERMS OF THE COMET.ML API
+        maxes_per_step = result['scores'].max(axis=0)
+        for j, step_max_score in enumerate(maxes_per_step):
+            self.COMET.log_metric('step_max_score', step_max_score, epoch=i, step=j)
+
         tqdm.write(f'[EXPERIMENT {i+1:05d}] max_score={s:8f} converge_time={c:8f}')
 
     def pre_exp(self, exp: ExperimentArgs):
@@ -80,7 +89,10 @@ class ExperimentTrackerConvergence(ExperimentTracker):
             project_name=exp.comet_project_name,
             disabled=not exp.comet_enable,
             display_summary=True,
-            parse_args=False,
+            # auto stuffs
+            log_graph=False,  # Computation Graph
+            auto_metric_logging=False,  # Loss, etc.
+            parse_args=False,  # command line args
         )
 
         # LOG
@@ -110,6 +122,7 @@ class ExperimentTrackerConvergence(ExperimentTracker):
         util.print_separator('RUNNING EXPERIMENT:')
 
     def pre_run(self, exp: ExperimentArgs, i: int):
+        self.COMET.set_epoch(i)
         self.COMET.set_step(i)
 
     def post_run(self, exp: ExperimentArgs, i: int, population: Population):
