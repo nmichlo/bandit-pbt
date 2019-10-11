@@ -44,7 +44,7 @@ import comet_ml
 import numpy as np
 from tqdm import tqdm
 
-from tsucb.experiments.args_nn import ExperimentArgs, ExperimentTracker
+from tsucb.experiments.experiment_args import ExperimentArgs, ExperimentTracker
 from tsucb.helper import util, defaults
 from tsucb.pbt.pbt import Population
 
@@ -63,7 +63,7 @@ defaults.set_defaults()
 # ========================================================================== #
 
 
-class ExperimentTrackerNN(ExperimentTracker):
+class ExperimentTrackerConvergence(ExperimentTracker):
 
     def __init__(self):
         self.COMET = None
@@ -233,5 +233,5 @@ if __name__ == '__main__':
     ))
 
     experiment.do_experiment(
-        tracker=ExperimentTrackerNN(),
+        tracker=ExperimentTrackerConvergence(),
     )
