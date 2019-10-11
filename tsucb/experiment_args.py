@@ -71,8 +71,8 @@ DATASET_CHOICES = [
 ]
 
 SUGGEST_CHOICES = [
-    'random', 'e-greedy',
-    'softmax', 'e-softmax',
+    'ran', 'e-gr', 'gr',
+    'sm', 'e-sm',
     'ucb', 'e-ucb'
 ]
 
@@ -111,7 +111,7 @@ class ExperimentArgs(Args):
     pbt_members:              int             = field(default=25,          cast=int_rng(1, INF))                       # used
     pbt_members_ready_after:  int             = field(default=2,           cast=int_rng(1, INF))                       # used
     pbt_exploit_strategy:     str             = field(default='ts',        cast=str.lower, choices=STRATEGY_CHOICES)   # used
-    pbt_exploit_suggest:      str             = field(default='random',    cast=str.lower, choices=SUGGEST_CHOICES)    # used
+    pbt_exploit_suggest:      str             = field(default='ran',       cast=str.lower, choices=SUGGEST_CHOICES)    # used
     pbt_disable_exploit:      bool            = field(default=False)                                                   # used
     pbt_disable_explore:      bool            = field(default=False)                                                   # used
     pbt_disable_eager_step:   bool            = field(default=False)                                                   # used
@@ -120,7 +120,7 @@ class ExperimentArgs(Args):
     suggest_ucb_incr_mode:    str             = field(default='exploited', cast=str.lower, choices=INCR_MODES)         # used
     suggest_ucb_c:            float           = field(default=1.00,        cast=flt_rng(0.0, 2.0))                     # used
     suggest_softmax_temp:     float           = field(default=1.00,        cast=flt_rng(0.0, INF))                     # used
-    suggest_eps:              float           = field(default=0.75,        cast=flt_rng(0.0, 1.0))                     # used
+    suggest_eps:              float           = field(default=0.5,         cast=flt_rng(0.0, 1.0))                     # used
     # EXPLOITER - UCB & TS
     strategy_ts_ratio_top:    float           = field(default=0.20,        cast=flt_rng(0.0, 1.0))                     # used
     strategy_ts_ratio_bottom: float           = field(default=0.20,        cast=flt_rng(0.0, 1.0))                     # used
@@ -195,13 +195,15 @@ class ExperimentArgs(Args):
 
     def make_suggest(self) -> 'ISuggest':
         u = self._use_suggest_field
-        if self.pbt_exploit_suggest == 'random':
+        if self.pbt_exploit_suggest == 'ran':
             suggester = SuggestUniformRandom()
-        elif self.pbt_exploit_suggest == 'e-greedy':
+        elif self.pbt_exploit_suggest == 'e-gr':
             suggester = SuggestEpsilonGreedy(epsilon=u('suggest_eps'))
-        elif self.pbt_exploit_suggest == 'softmax':
+        elif self.pbt_exploit_suggest == 'gr':
+            suggester = SuggestGreedy()
+        elif self.pbt_exploit_suggest == 'sm':
             suggester = SuggestSoftmax(temperature=u('suggest_softmax_temp'))
-        elif self.pbt_exploit_suggest == 'e-softmax':
+        elif self.pbt_exploit_suggest == 'e-sm':
             suggester = SuggestEpsilonSoftmax(epsilon=u('suggest_eps'), temperature=u('suggest_softmax_temp'))
         elif self.pbt_exploit_suggest == 'ucb':
             suggester = SuggestUcb(c=u('suggest_ucb_c'), incr_mode=u('suggest_ucb_incr_mode'))
