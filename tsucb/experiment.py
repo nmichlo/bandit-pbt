@@ -188,10 +188,10 @@ if __name__ == '__main__':
     experiment = ExperimentArgs.from_system_args(defaults=dict(
         # DO NOT CHANGE - MISC
         pbt_print=False,
-        comet_enable=False,
-        experiment_repeats=5,
+        comet_enable=True,
+        experiment_repeats=1,
         # DO NOT CHANGE - EXPERIMENT - THESE ARE ALREADY DEFAULTS:
-        experiment_type='toy',
+        experiment_type='cnn',
         cnn_steps_per_epoch=5,
         pbt_target_steps=5*4,  # 5 steps per epoch for 4 epochs
         pbt_exploit_strategy='ts',
