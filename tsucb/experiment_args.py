@@ -249,12 +249,12 @@ class ExperimentArgs(Args):
                     model='example', loss='NLLLoss', optimizer='SGD',
                     dataset=u('cnn_dataset'),
                     model_options={}, dataset_options={}, loss_options={}, optimizer_options=dict(
-                        lr=random_log_uniform(self.cnn_lr_min, self.cnn_lr_max),
-                        momentum=random_uniform(self.cnn_momentum_min, self.cnn_momentum_max),
+                        lr=random_log_uniform(u('cnn_lr_min'), u('cnn_lr_max')),
+                        momentum=random_uniform(u('cnn_momentum_min'), u('cnn_momentum_max')),
                     ),
                     mutations={
-                        'optimizer_options/lr':       ('uniform_perturb', 0.5,  1.8, self.cnn_lr_min, self.cnn_lr_max),              # eg. 0.8 < 1/1.2  shifts exploration towards getting smaller
-                        'optimizer_options/momentum': ('uniform_perturb', 0.5, 2.00, self.cnn_momentum_min, self.cnn_momentum_max),  #     0.8 = 1/1.25 is balanced
+                        'optimizer_options/lr':       ('uniform_perturb', 0.5,  1.8, u('cnn_lr_min'), u('cnn_lr_max')),              # eg. 0.8 < 1/1.2  shifts exploration towards getting smaller
+                        'optimizer_options/momentum': ('uniform_perturb', 0.5, 2.00, u('cnn_momentum_min'), u('cnn_momentum_max')),  #     0.8 = 1/1.25 is balanced
                     },
                     train_images_per_step=60000//u('cnn_steps_per_epoch'),
                     batch_size=u('cnn_batch_size'),
