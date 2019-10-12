@@ -79,7 +79,7 @@ class ExperimentTrackerConvergence(ExperimentTracker):
             name=f'{exp.experiment_name} ({exp.experiment_id[:5]})',
             group=exp.experiment_name,
             project=exp.comet_project_name,
-            id=exp.experiment_id,
+            id=f'{exp.experiment_name}-{exp.experiment_id}',
             job_type='pbt',
             tags=[
                 exp.experiment_type,
@@ -89,7 +89,7 @@ class ExperimentTrackerConvergence(ExperimentTracker):
             config={
                 **exp.as_dict(used_only=True),
                 **exp.get_dict_computed(),
-            }
+            },
         )
         # LOG
         exp.print_reproduce_info()
@@ -116,7 +116,6 @@ class ExperimentTrackerConvergence(ExperimentTracker):
                 score=h.p,
                 step=h.t,
                 exploit_id=h.exploit_id,
-                step_result=h.result,
             ) for h in m.history
         ] for m in population.members]
 
@@ -141,49 +140,36 @@ class ExperimentTrackerConvergence(ExperimentTracker):
     def post_exp(self, exp: ExperimentArgs):
         util.print_separator('EXPERIMENT RESULTS:')
 
-        # CALCULATE AVERAGES:
-        ave_max_score       = np.average([r['max_score'] for r in self._results])
-        ave_converge_time   = np.average([r['converge_time'] for r in self._results])
-        run_step_maxes      = np.array([r["scores"].max(axis=0) for r in self._results])
-        mean_step_maxes     = run_step_maxes.mean(axis=0)
+        # RUN STEP SCORES
+        run_scores          = np.array([r["scores"] for r in self._results])
+        run_step_max_scores = run_scores.max(axis=1)
+        ave_step_max_scores = run_step_max_scores.mean(axis=0)
+
+        wandb.summary['run_scores'] = run_scores
+        wandb.summary['run_step_max_scores'] = run_step_max_scores
+        wandb.summary['ave_step_max_scores'] = ave_step_max_scores
+
+        # RUN SCORES
+        run_max_scores = run_step_max_scores.max(axis=1)
+        avg_max_score  = run_max_scores.mean()
+
+        wandb.summary['run_max_scores'] = run_max_scores
+        wandb.summary['avg_max_score']  = avg_max_score
+
+        # RUN CONVERGENCE
+        run_converge_times      = np.array([r['converge_time'] for r in self._results])
+        avg_converge_time = run_converge_times.mean()
+
+        wandb.summary['run_converge_times'] = run_converge_times
+        wandb.summary['avg_converge_time']  = avg_converge_time
+
+        wandb.summary['run_histories'] = [r["histories"] for r in self._results]
 
         # WANDB: STEPS:
-        for i in range(max(len(mean_step_maxes), len(self._results))):
-            # RUN DATA:
-            if i < len(self._results):
-                wandb.log({
-                    'run_max_score': self._results[i]['max_score'],
-                    'run_converge_time': self._results[i]['converge_time'],
-                }, commit=False, step=i)
-
-            # STEP DATA:
-            if i < len(mean_step_maxes):
-                wandb.log({
-                    'population_step_ave_max': mean_step_maxes[i]
-                }, commit=False, step=i)
-
-            # LOG:
-            wandb.log(commit=True, step=i)
-
-        # WANDB:
-        wandb.summary['ave_max_score'] = ave_max_score
-        wandb.summary['ave_converge_time'] = ave_converge_time
-        wandb.summary['mean_step_maxes'] = mean_step_maxes
-
-        # LOG
-        tqdm.write(f'[RESULT] mean_step_maxes:   {mean_step_maxes.tolist()})')
-        tqdm.write(f'[RESULT] ave_max_score:     {ave_max_score:8f}')
-        tqdm.write(f'[RESULT] ave_converge_time: {ave_converge_time:8f}\n')
-
-        try:
-            result_file = os.path.join(util.make_dir(exp.results_dir), f'results_{exp.start_time_str}_{exp.experiment_name}_{experiment.experiment_id}.npz')
-            np.savez_compressed(result_file, dict(
-                results=self._results,
-                arguments=exp.as_dict(used_only=True, exclude_defaults=False)
-            ))
-            tqdm.write(f'[SAVED]: {result_file}\n')
-        except Exception as e:
-            traceback.print_exc(e)
+        for i, ave_step_max_score in enumerate(ave_step_max_scores):
+            wandb.log({
+                'ave_step_max_score': ave_step_max_score
+            }, commit=True, step=i)
 
         util.print_separator('EXPERIMENT ENDED!')
 
@@ -202,10 +188,10 @@ if __name__ == '__main__':
     experiment = ExperimentArgs.from_system_args(defaults=dict(
         # DO NOT CHANGE - MISC
         pbt_print=False,
-        comet_enable=True,
+        comet_enable=False,
         experiment_repeats=5,
         # DO NOT CHANGE - EXPERIMENT - THESE ARE ALREADY DEFAULTS:
-        experiment_type='cnn',
+        experiment_type='toy',
         cnn_steps_per_epoch=5,
         pbt_target_steps=5*4,  # 5 steps per epoch for 4 epochs
         pbt_exploit_strategy='ts',
