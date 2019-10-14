@@ -168,14 +168,19 @@ class ExperimentArgs(Args):
 
     @computed
     def tracker_converge_score(self) -> float:
-        return 1.18 if self.experiment_type == 'toy' else 99.2
+        if self.experiment_type == 'toy':
+            return 1.18
+        else:
+            if self.cnn_dataset == 'MNIST':
+                return 99.2
+            else:
+                return 92.0  # FashionMNIST
 
     # PROPERTIES
-
     @computed
     def results_dir(self) -> str:
         # experiment_id should ALWAYS be unique
-        return f'./temp/results/{self.experiment_name}/{self.experiment_id}'
+        return f'./dat/results/{self.experiment_name}/{self.experiment_id}'
 
     @computed
     def pbt_show_progress(self) -> bool:
@@ -183,8 +188,7 @@ class ExperimentArgs(Args):
 
     @computed(experiment_type='cnn')
     def checkpoint_dir(self) -> Optional[str]:
-        # experiment_id should ALWAYS be unique
-        return f'./temp/checkpoints/{self.experiment_name}/{util.get_hostname(replace_dots=True)}/{self.experiment_id}'
+        return f'/tmp/pbt/checkpoints/{util.get_hostname(replace_dots=True)}'
 
     @computed(experiment_type='cnn')
     def path_provider(self) -> Optional[object]:
