@@ -257,7 +257,7 @@ def main():
 
     util.print_separator('ES')
     util.seed(42)
-    train(make_population(lambda: GeneralisedExploiter(ExploitStrategyTruncationSelection(), SuggestEpsilonSoftmax(epsilon=0.75))))
+    train(make_population(lambda: GeneralisedExploiter(ExploitStrategyTruncationSelection(), SuggestMaxBoltzmann(epsilon=0.75))))
 
 if __name__ == '__main__':
     main()

@@ -165,7 +165,8 @@ def run_dual_test():
         "print_scores": False,
 
         # redo
-        'RESET': True
+        'LOAD': False,
+        'SAVE': False,
     }
 
     make_exploit_strategy = lambda: ExploitStrategyTruncationSelection()
@@ -174,14 +175,22 @@ def run_dual_test():
     info_keys = ['Exploiter', 'Suggest', 'Epsilon', 'Random']
     exploiters = [
         (dict(Exploiter='TS Random',                Suggest='uniform', Epsilon=False, Random=True),  lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUniformRandom())),
-        (dict(Exploiter='TS ε-Greedy (ε=0.7)',      Suggest='uniform', Epsilon=True,  Random=True),  lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonGreedy(epsilon=0.7))),
-        (dict(Exploiter='TS Softmax (τ=1)',         Suggest='softmax', Epsilon=False, Random=True),  lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestSoftmax(temperature=1.0))),
-        (dict(Exploiter='TS ε-Softmax (ε=0.7 τ=1)', Suggest='softmax', Epsilon=True,  Random=True),  lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonSoftmax(epsilon=0.7, temperature=1.0))),
-        (dict(Exploiter='TS UCB (c=1)',             Suggest='ucb',     Epsilon=False, Random=False), lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=1.0))),
+        (dict(Exploiter='TS ε-Greedy (ε=0.2)',      Suggest='uniform', Epsilon=True,  Random=True),  lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonGreedy(epsilon=0.2))),
+        (dict(Exploiter='TS ε-Greedy (ε=0.4)',      Suggest='uniform', Epsilon=True,  Random=True),  lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonGreedy(epsilon=0.4))),
+        (dict(Exploiter='TS ε-Greedy (ε=0.6)',      Suggest='uniform', Epsilon=True,  Random=True),  lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonGreedy(epsilon=0.6))),
+        (dict(Exploiter='TS ε-Greedy (ε=0.8)',      Suggest='uniform', Epsilon=True,  Random=True),  lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonGreedy(epsilon=0.8))),
+        (dict(Exploiter='TS Softmax (τ=0.1)',       Suggest='softmax', Epsilon=False, Random=True),  lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestSoftmax(temperature=0.1))),
+        (dict(Exploiter='TS Softmax (τ=0.5)',       Suggest='softmax', Epsilon=False, Random=True),  lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestSoftmax(temperature=0.5))),
+        (dict(Exploiter='TS Softmax (τ=1.0)',       Suggest='softmax', Epsilon=False, Random=True),  lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestSoftmax(temperature=1.0))),
+        (dict(Exploiter='TS UCB (c=0.5)',           Suggest='ucb',     Epsilon=False, Random=False), lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=0.5))),
+        (dict(Exploiter='TS UCB (c=1.0)',           Suggest='ucb',     Epsilon=False, Random=False), lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=1.0))),
+        (dict(Exploiter='TS UCB (c=2.0)',           Suggest='ucb',     Epsilon=False, Random=False), lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=2.0))),
     ]
     k = len(exploiters)
 
-    if options['RESET'] or not os.path.exists('./toy_results.dat'):
+    if options['LOAD'] and os.path.exists('./toy_results.dat'):
+        results = pd.read_msgpack('./toy_results.dat')
+    else:
         fig, axs = make_subplots(2, k)
         results = []
         # EXPERIMENTS
@@ -192,12 +201,12 @@ def run_dual_test():
                     result.update(info)
                     results.append(result)
         results = pd.DataFrame(results)
-        results.to_msgpack('./toy_results.dat')
-    else:
-        results = pd.read_msgpack('./toy_results.dat')
+        if options['SAVE']:
+            results.to_msgpack('./toy_results.dat')
 
     # GATHER RESULTS - convert rows of lists to rows
     aggregated = []
+
     for info, group in results.groupby(info_keys):
         scores = np.array(list(group['scores']))
         max_runs = scores.max(axis=1).mean(axis=0)
@@ -211,12 +220,13 @@ def run_dual_test():
     # plot for old code
     plt.show()
     plt.figure(figsize=(6, 3.75))
-    sns.lineplot(x="Step", y="Score", hue="Suggest", style='Epsilon', legend=False, data=aggregated, palette=sns.color_palette("GnBu", 3))
+    sns.lineplot(x="Step", y="Score", data=aggregated, hue="Exploiter", style='Epsilon') #, palette=sns.color_palette("GnBu", k))
     # >>> MAKE SURE THIS MATCHES AS ORDER CAN CHANGE <<<
     # >>> MAKE SURE THIS MATCHES AS ORDER CAN CHANGE <<<
     # >>> MAKE SURE THIS MATCHES AS ORDER CAN CHANGE <<<
-    plt.legend(labels=list(info[info_keys[0]] for info, _ in exploiters))
-    plt.savefig('toy_results.png', dpi=400, bbox_inches="tight")
+    # plt.legend(labels=list(info[info_keys[0]] for info, _ in exploiters))
+    if options['SAVE']:
+        plt.savefig('toy_results.png', dpi=400, bbox_inches="tight")
     plt.show()
 
 

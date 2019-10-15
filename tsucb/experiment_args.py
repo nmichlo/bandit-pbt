@@ -212,7 +212,7 @@ class ExperimentArgs(Args):
         elif self.pbt_exploit_suggest == 'sm':
             suggester = SuggestSoftmax(temperature=u('suggest_softmax_temp'))
         elif self.pbt_exploit_suggest == 'e-sm':
-            suggester = SuggestEpsilonSoftmax(epsilon=u('suggest_eps'), temperature=u('suggest_softmax_temp'))
+            suggester = SuggestMaxBoltzmann(epsilon=u('suggest_eps'), temperature=u('suggest_softmax_temp'))
         elif self.pbt_exploit_suggest == 'ucb':
             suggester = SuggestUcb(c=u('suggest_ucb_c'), incr_mode=u('suggest_ucb_incr_mode'))
         elif self.pbt_exploit_suggest == 'e-ucb':
