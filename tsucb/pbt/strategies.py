@@ -151,8 +151,9 @@ class SuggestUcb(ISuggest):
         return filtered[ucb_ordering[0]]
 
     @staticmethod
-    def ucb1(X_i, n_i, n, C=1.):
-        return X_i + C * np.sqrt(np.log(n) / n_i)
+    def ucb1(X_i, n_i, n, C=0.5):
+        # TODO: this is actually UCT not UCB1
+        return X_i + (2 * C) * np.sqrt(2 * np.log(n) / n_i)
 
 class SuggestEpsilonGreedy(_SuggestRandomGreedy):
     def __init__(self, epsilon=0.5):
@@ -515,8 +516,9 @@ class OrigExploitUcb(_OrigExploitTsSubset):
             raise KeyError('Invalid select_mode')
 
     @staticmethod
-    def ucb1(X_i, n_i, n, C=1.):
-        return X_i + C * np.sqrt(np.log(n) / n_i)
+    def ucb1(X_i, n_i, n, C=0.5):
+        # TODO: this is actually UCT not UCB1
+        return X_i + (2 * C) * np.sqrt(2 * np.log(n) / n_i)
 
 
 # ========================================================================= #

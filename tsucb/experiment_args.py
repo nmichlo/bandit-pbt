@@ -122,8 +122,8 @@ class ExperimentArgs(Args):
     pbt_disable_random_order: bool            = field(default=False)                                                   # used
     # EXPLOITER - UCB
     suggest_ucb_incr_mode:    str             = field(default='exploited', cast=str.lower, choices=INCR_MODES)         # used
-    suggest_ucb_c:            float           = field(default=1.00,        cast=flt_rng(0.0, 2.0))                     # used
-    suggest_softmax_temp:     float           = field(default=1.00,        cast=flt_rng(0.0, INF))                     # used
+    suggest_ucb_c:            float           = field(default=0.5,         cast=flt_rng(0.0, 1000.0))                  # used
+    suggest_softmax_temp:     float           = field(default=0.5,         cast=flt_rng(0.0, INF))                     # used
     suggest_eps:              float           = field(default=0.5,         cast=flt_rng(0.0, 1.0))                     # used
     # EXPLOITER - UCB & TS
     strategy_ts_ratio_top:    float           = field(default=0.20,        cast=flt_rng(0.0, 1.0))                     # used
