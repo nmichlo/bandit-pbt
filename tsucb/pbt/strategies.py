@@ -86,7 +86,7 @@ class SuggestSoftmax(ISuggest):
         # AVOID OVERFLOW:
         scores = scores - np.max(scores)  # this should not change the values
         # CALCULATE PROB
-        vals = np.exp(scores * self._temperature)
+        vals = np.exp(scores / self._temperature)
         prob = vals / np.sum(vals)
         # RETURN CATEGORICALLY SAMPLED
         return np.random.choice(filtered, p=prob)
@@ -152,18 +152,21 @@ class SuggestUcb(ISuggest):
 
     @staticmethod
     def ucb1(X_i, n_i, n, C=1.):
-        return X_i + C * np.sqrt(np.log2(n) / n_i)
+        return X_i + C * np.sqrt(np.log(n) / n_i)
 
 class SuggestEpsilonGreedy(_SuggestRandomGreedy):
     def __init__(self, epsilon=0.5):
         super().__init__(SuggestUniformRandom(), epsilon)
 
-class SuggestEpsilonSoftmax(_SuggestRandomGreedy):
+class SuggestMaxBoltzmann(_SuggestRandomGreedy):
     def __init__(self, epsilon=0.5, temperature=1.0, normalise=True):
+        # Epsilon-Softmax is (Random + Softmax)
+        # Max Boltzmann Exploration [MBE] is (Greedy + Softmax)
         super().__init__(SuggestSoftmax(temperature=temperature, normalise=normalise), epsilon)
 
 class SuggestEpsilonUcb(_SuggestRandomGreedy):
     def __init__(self, epsilon=0.5, c=1.0, incr_mode='exploited', debug=False):
+        # TODO: this name is probably wrong too?
         super().__init__(SuggestUcb(c=c, incr_mode=incr_mode, debug=debug), epsilon)
 
 
@@ -513,7 +516,7 @@ class OrigExploitUcb(_OrigExploitTsSubset):
 
     @staticmethod
     def ucb1(X_i, n_i, n, C=1.):
-        return X_i + C * np.sqrt(np.log2(n) / n_i)
+        return X_i + C * np.sqrt(np.log(n) / n_i)
 
 
 # ========================================================================= #
