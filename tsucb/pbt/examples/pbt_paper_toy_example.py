@@ -173,24 +173,32 @@ def run_dual_test():
 
     # EXPLOITERS
     info_keys = ['Exploiter', 'Suggest', 'Epsilon', 'Random']
-    exploiters = [
-        (dict(Exploiter='TS Random',                Suggest='uniform', Epsilon=False, Random=True),  lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUniformRandom())),
-        # (dict(Exploiter='TS ε-Greedy (ε=0.2)',      Suggest='uniform', Epsilon=True,  Random=True),  lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonGreedy(epsilon=0.2))),
-        # (dict(Exploiter='TS ε-Greedy (ε=0.4)',      Suggest='uniform', Epsilon=True,  Random=True),  lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonGreedy(epsilon=0.4))),
-        (dict(Exploiter='TS ε-Greedy (ε=0.6)',      Suggest='uniform', Epsilon=True,  Random=True),  lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonGreedy(epsilon=0.6))),
-        (dict(Exploiter='TS ε-Greedy (ε=0.8)',      Suggest='uniform', Epsilon=True,  Random=True),  lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonGreedy(epsilon=0.8))),
-        # (dict(Exploiter='TS Softmax (τ=0.1)',       Suggest='softmax', Epsilon=False, Random=True),  lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestSoftmax(temperature=0.1))),
-        (dict(Exploiter='TS Softmax (τ=0.5)',       Suggest='softmax', Epsilon=False, Random=True),  lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestSoftmax(temperature=0.5))),
-        # (dict(Exploiter='TS Softmax (τ=1.0)',       Suggest='softmax', Epsilon=False, Random=True),  lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestSoftmax(temperature=1.0))),
-        # (dict(Exploiter='TS UCB (c=0.1, E)',           Suggest='ucb',     Epsilon=False, Random=False), lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=0.1, incr_mode='exploited'))),
-        # (dict(Exploiter='TS UCB (c=0.5, E)',           Suggest='ucb',     Epsilon=False, Random=False), lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=0.5, incr_mode='exploited'))),
-        (dict(Exploiter='TS UCB (c=1.0, E)',           Suggest='ucb',     Epsilon=False, Random=False), lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=1.0, incr_mode='exploited'))),
-        # (dict(Exploiter='TS UCB (c=2.0, E)',           Suggest='ucb',     Epsilon=False, Random=False), lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=2.0, incr_mode='exploited'))),
-        # (dict(Exploiter='TS UCB (c=0.1, S)',           Suggest='ucb',     Epsilon=False, Random=False), lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=0.1, incr_mode='stepped'))),
-        # (dict(Exploiter='TS UCB (c=0.5, S)',           Suggest='ucb',     Epsilon=False, Random=False), lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=0.5, incr_mode='stepped'))),
-        (dict(Exploiter='TS UCB (c=1.0, S)',           Suggest='ucb',     Epsilon=False, Random=False), lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=1.0, incr_mode='stepped'))),
-        # (dict(Exploiter='TS UCB (c=2.0, S)',           Suggest='ucb',     Epsilon=False, Random=False), lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=2.0, incr_mode='stepped'))),
+    exploiters_default = [
+        (dict(Exploiter='TS Random',               Suggest='uniform', Epsilon=False, Random=True),  lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUniformRandom())),
+        (dict(Exploiter='TS Greedy',               Suggest='greedy',  Epsilon=True,  Random=True),  lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestGreedy())),
     ]
+    exploiters_greedy = [
+        # (dict(Exploiter='TS ε-Greedy (ε=0.2)',   Suggest='uniform', Epsilon=True,  Random=True),  lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonGreedy(epsilon=0.2))),
+        # (dict(Exploiter='TS ε-Greedy (ε=0.4)',   Suggest='uniform', Epsilon=True,  Random=True),  lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonGreedy(epsilon=0.4))),
+        # (dict(Exploiter='TS ε-Greedy (ε=0.6)',   Suggest='uniform', Epsilon=True,  Random=True),  lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonGreedy(epsilon=0.6))),
+        # (dict(Exploiter='TS ε-Greedy (ε=0.8)',   Suggest='uniform', Epsilon=True,  Random=True),  lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonGreedy(epsilon=0.8))),
+    ]
+    exploiters_softmax = [
+        # (dict(Exploiter='TS Softmax (τ=0.1)',    Suggest='softmax', Epsilon=False, Random=True),  lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestSoftmax(temperature=0.1))),
+        # (dict(Exploiter='TS Softmax (τ=0.5)',    Suggest='softmax', Epsilon=False, Random=True),  lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestSoftmax(temperature=0.5))),
+        # (dict(Exploiter='TS Softmax (τ=1.0)',    Suggest='softmax', Epsilon=False, Random=True),  lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestSoftmax(temperature=1.0))),
+    ]
+    exploiters_ucb = [
+        # (dict(Exploiter='TS UCB (c=0.1)',     Suggest='ucb',     Epsilon=False, Random=False), lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=0.1, incr_mode='exploited'))),
+        # (dict(Exploiter='TS UCB (c=0.5)',     Suggest='ucb',     Epsilon=False, Random=False), lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=0.5, incr_mode='exploited'))),
+        # (dict(Exploiter='TS UCB (c=1.0)',     Suggest='ucb',     Epsilon=False, Random=False), lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=1.0, incr_mode='exploited'))),
+        # (dict(Exploiter='TS UCB (c=2.0)',     Suggest='ucb',     Epsilon=False, Random=False), lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=2.0, incr_mode='exploited'))),
+        (dict(Exploiter='TS UCB (c=100, S)',     Suggest='ucb',     Epsilon=False, Random=False), lambda: OrigExploitUcb(c=0.00001, normalise_mode='none')),
+        # (dict(Exploiter='TS UCB (c=100, P)',     Suggest='ucb',     Epsilon=False, Random=False), lambda: OrigExploitUcb(c=1, normalise_mode='population')),
+        # (dict(Exploiter='TS UCB (c=100, C)',     Suggest='ucb',     Epsilon=False, Random=False), lambda: OrigExploitUcb(c=1, normalise_mode='none')),
+    ]
+
+    exploiters = exploiters_default + exploiters_greedy + exploiters_softmax + exploiters_ucb
     k = len(exploiters)
 
     if options['LOAD'] and os.path.exists('./toy_results.dat'):
@@ -223,17 +231,31 @@ def run_dual_test():
     aggregated = pd.DataFrame(aggregated)
 
     # plot for old code
-    plt.show()
-    plt.figure(figsize=(6, 3.75))
-    sns.lineplot(x="Step", y="Score", data=aggregated, hue="Exploiter", style='Epsilon') #, palette=sns.color_palette("GnBu", k))
-    # >>> MAKE SURE THIS MATCHES AS ORDER CAN CHANGE <<<
-    # >>> MAKE SURE THIS MATCHES AS ORDER CAN CHANGE <<<
-    # >>> MAKE SURE THIS MATCHES AS ORDER CAN CHANGE <<<
-    # plt.legend(labels=list(info[info_keys[0]] for info, _ in exploiters))
-    if options['SAVE']:
-        plt.savefig('toy_results.png', dpi=400, bbox_inches="tight")
-    plt.show()
+    plt.cla()
+    plt.close()
+    # plt.show()
 
+    palette = {}
+    for xpltrs, color in [(exploiters_default, 'black'), (exploiters_greedy, 'orange'), (exploiters_softmax, 'magenta'), (exploiters_ucb, 'blue')]:
+        palette.update({
+            e[0]['Exploiter']: v
+            for e, v in zip(xpltrs, sns.light_palette(color, len(xpltrs)*2+1)[1::2])
+        })
+
+    for i, (name, xpltrs) in enumerate([
+        ('e-greedy', exploiters_default + exploiters_greedy),
+        ('softmax', exploiters_default + exploiters_softmax),
+        ('ucb', exploiters_default + exploiters_ucb),
+        # exploiters,
+    ]):
+        keys = {e[0]['Exploiter'] for e in xpltrs}
+        data = aggregated.loc[aggregated['Exploiter'].isin(keys)]
+        # PLOT
+        plt.figure(figsize=(6, 3))
+        sns.lineplot(x="Step", y="Score", data=data, hue="Exploiter", palette=palette)
+        if options['SAVE']:
+            plt.savefig(f'toy_results_{name}.png', dpi=400, bbox_inches="tight")
+        plt.show()
 
 if __name__ == '__main__':
     run_dual_test()
@@ -242,4 +264,3 @@ if __name__ == '__main__':
 # ========================================================================== #
 # END                                                                        #
 # ========================================================================== #
-
