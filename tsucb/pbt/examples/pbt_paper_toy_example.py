@@ -265,7 +265,7 @@ def run_dual_test():
         keys = {e[0]['Exploiter'] for e in xpltrs}
         data = aggregated.loc[aggregated['Exploiter'].isin(keys)]
         # PLOT
-        plt.figure(figsize=(6, 4))
+        plt.figure(figsize=(6*7/6, 4*7/6))
         plt.xlim((1, 11))
         sns.lineplot(x="Step", y="Score", data=data, hue="Exploiter", palette=palette)
         if options['SAVE_GRAPHS']:
