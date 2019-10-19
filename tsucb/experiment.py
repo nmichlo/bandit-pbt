@@ -176,7 +176,6 @@ class ExperimentTrackerConvergence(ExperimentTracker):
 
 
 if __name__ == '__main__':
-
     # 0.65 minutes per epoch per member
     # ie. 0.65 * 50 members * 5 epochs = 2.70 hours
     #     0.65 * 50 members * 3 epochs = 1.62 hours
