@@ -3,6 +3,7 @@ import time
 from typing import NamedTuple
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.ticker as plticker
 import seaborn as sns
 import pandas as pd
 
@@ -114,7 +115,6 @@ def make_plot(ax_col, options, exploiter, steps=200, title=None, converge_score=
         exploit=True, explore=True,
         show_progress=False,
         randomize_order=True,
-        step_after_explore=True,
         print_scores=options['print_scores']
     )
     t1 = time.time()
@@ -151,7 +151,7 @@ def make_plot(ax_col, options, exploiter, steps=200, title=None, converge_score=
 
 def run_dual_test():
     options = {
-        "steps": 12,
+        "steps": 10,
         "steps_till_ready": 2,
 
         "debug": False,
@@ -159,8 +159,8 @@ def run_dual_test():
         "exploit_copies_h": False,  # must be False for toy example to be valid
 
         # custom
-        "repeats": 1000,
-        "exploration_scale": 0.1,
+        "repeats": 500,
+        "exploration_scale": 0.25,
         "population_size": 50,
         "print_scores": False,
 
@@ -252,8 +252,10 @@ def run_dual_test():
         keys = {e[0]['Exploiter'] for e in xpltrs}
         data = aggregated.loc[aggregated['Exploiter'].isin(keys)]
         # PLOT
-        plt.figure(figsize=(6, 3))
-        plt.xlim((1, 11))
+        fig, ax = plt.subplots(figsize=(6*7/6, 2.5*7/6))
+        ax.xaxis.set_major_locator(plticker.MultipleLocator(base=1.0))
+        plt.xlim((2, 6))
+        plt.ylim((0.2, 1.2))
         sns.lineplot(x="Step", y="Score", data=data, hue="Exploiter", palette=palette)
         if options['SAVE_GRAPHS']:
             plt.savefig(f'toy_results_{name}.png', dpi=400, bbox_inches="tight")
@@ -265,8 +267,10 @@ def run_dual_test():
         keys = {e[0]['Exploiter'] for e in xpltrs}
         data = aggregated.loc[aggregated['Exploiter'].isin(keys)]
         # PLOT
-        plt.figure(figsize=(6*7/6, 4*7/6))
-        plt.xlim((1, 11))
+        fig, ax = plt.subplots(figsize=(6*7/6, 4*7/6))
+        ax.xaxis.set_major_locator(plticker.MultipleLocator(base=1.0))
+        plt.xlim((2, 6))
+        plt.ylim((0.2, 1.2))
         sns.lineplot(x="Step", y="Score", data=data, hue="Exploiter", palette=palette)
         if options['SAVE_GRAPHS']:
             plt.savefig(f'toy_results_{name}.png', dpi=400, bbox_inches="tight")
