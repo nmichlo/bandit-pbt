@@ -48,6 +48,10 @@ def random_log_uniform(a, b):
 # MUTATIONS                                                                 #
 # ========================================================================= #
 
+def normal_explore(value, scale, min, max):
+    val = np.random.normal(value, scale)
+    val = np.clip(val, min, max)
+    return val
 
 def perturb(value, low, high, min, max):
     if random_bool():

@@ -8,6 +8,7 @@ import seaborn as sns
 import pandas as pd
 
 from tsucb.helper import util, defaults
+from tsucb.pbt.examples.pbt_local_mnist_example import uniform_perturb, perturb, normal_explore
 from tsucb.pbt.strategies import *
 from tsucb.pbt.pbt import Member, Population
 
@@ -55,9 +56,14 @@ class ToyMember(Member):
     def _explored_h(self, population: 'Population') -> ToyHyperParams:
         """perturb hyper-parameters with noise from a normal distribution"""
         s = population.member_options.get('exploration_scale', 0.1)
+
         return ToyHyperParams(
-            np.clip(np.random.normal(self._h.coef, s), 0, 1),
-            np.clip(np.random.normal(self._h.alpha, s), 0, 1),
+            normal_explore(self._h.coef, s, 0, 1),
+            normal_explore(self._h.alpha, s, 0, 1),
+            # uniform_perturb(self._h.coef, (s-1), 1/(s-1), 0, 1),
+            # uniform_perturb(self._h.alpha, (s-1), 1/(s-1), 0, 1),
+            # np.clip(np.random.normal(self._h.coef, s), 0, 1),
+            # np.clip(np.random.normal(self._h.alpha, s), 0, 1),
             # self._h.coef + np.random.randn(*self._h.coef.shape) * s,
             # abs(self._h.alpha + np.random.randn() * s),
         )
