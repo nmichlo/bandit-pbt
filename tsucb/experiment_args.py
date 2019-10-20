@@ -118,7 +118,6 @@ class ExperimentArgs(Args):
     pbt_exploit_suggest:      str             = field(default='ran',       cast=str.lower, choices=SUGGEST_CHOICES)    # used
     pbt_disable_exploit:      bool            = field(default=False)                                                   # used
     pbt_disable_explore:      bool            = field(default=False)                                                   # used
-    pbt_disable_eager_step:   bool            = field(default=False)                                                   # used
     pbt_disable_random_order: bool            = field(default=False)                                                   # used
     # EXPLOITER - UCB
     suggest_ucb_incr_mode:    str             = field(default='exploited', cast=str.lower, choices=INCR_MODES)         # used
@@ -298,7 +297,6 @@ class ExperimentArgs(Args):
             explore=not self.pbt_disable_explore,
             show_progress=self.pbt_show_progress,
             randomize_order=not self.pbt_disable_random_order,
-            step_after_explore=not self.pbt_disable_eager_step,
             print_scores=self.pbt_print,
         )
         return population

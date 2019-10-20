@@ -209,7 +209,7 @@ class Population(IPopulation):
         return self
 
 
-    def train(self, n=None, exploit=True, explore=True, show_progress=True, randomize_order=True, step_after_explore=True, print_scores=True) -> 'IPopulation':
+    def train(self, n=None, exploit=True, explore=True, show_progress=True, randomize_order=True, print_scores=True) -> 'IPopulation':
         """
         Based on:
         + The original paper
@@ -222,7 +222,6 @@ class Population(IPopulation):
         """
 
         itr = tqdm(range(n), 'steps', disable=os.environ.get("DISABLE_TQDM", False)) if show_progress else range(n)
-        recently_explored = dict()
 
         # LOOP: STEPS
         # - original paper describes unsyncronised operations, so members can
@@ -239,20 +238,12 @@ class Population(IPopulation):
                 if show_progress:
                     itr.set_description(f'step {i+1}/{n} (member {j+1}/{len(self.members)}) [{max_score}]')
 
-                if step_after_explore and (j in recently_explored):
-                    # member already stepped due to eager stepping during
-                    # exploitation and exploration to better synthesise asynchronous PBT
-                    member.push_history(recently_explored[j])
-                else:
-                    # one step of optimisation using hyper-parameters h
-                    result = self._step(member)
-                    # current model evaluation
-                    self._eval(member)
-                    # append to history
-                    member.push_history(result)
-
-            if step_after_explore:
-                recently_explored.clear()
+                # one step of optimisation using hyper-parameters h
+                result = self._step(member)
+                # current model evaluation
+                self._eval(member)
+                # append to history
+                member.push_history(result)
 
             # EXPLOIT / EXPLORE
             for j, member in enumerate(shuffled_members):  # should be async
@@ -283,16 +274,8 @@ class Population(IPopulation):
                         # produce new hyper-parameters h and update member
                         self._explore(member)
                         # new model evaluation
-
-                        if step_after_explore:
-                            # Because we are not running asyncronously,
-                            # exploitation may be skewed due to untested members
-                            result = self._step(member)
-                            self._eval(member)
-                            recently_explored[j] = result
-                        else:
-                            self._eval(member)
-
+                        # TODO: if exploited or explored, not just explored
+                        self._eval(member)
 
             # STEP - END
             self._exploiter._population_stepped()
