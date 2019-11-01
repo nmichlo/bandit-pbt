@@ -650,7 +650,11 @@ class Member(IMember):
         :param steps_since_explore: The number of steps since the last hyper-parameter change.
         :return: True if this member is ready for the exploit/explore stage.
         """
-        return steps_since_explore >= population.member_options['steps_till_ready']
+        if steps < population.member_options['steps_till_begin']:
+            return False
+        if steps_since_explore < population.member_options['steps_till_ready']:
+            return False
+        return True
 
     @abc.abstractmethod
     def _step(self, options: dict) -> object:

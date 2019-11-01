@@ -92,6 +92,15 @@ EXPERIMENT_CHOICES = [
     'cnn'
 ]
 
+CNN_EXPLORE_MUTATIONS = [
+    'uniform_perturb',
+    'perturb',
+    'ratio_normal',
+    'uniform',
+    'normal',
+]
+
+
 class ExperimentArgs(Args):
 
     # EXPERIMENT
@@ -109,11 +118,13 @@ class ExperimentArgs(Args):
     cnn_lr_max:               float           = field(default=0.1,    cast=flt_rng(0, 1))                              # used
     cnn_momentum_min:         float           = field(default=0.01,   cast=flt_rng(0, 1))                              # used
     cnn_momentum_max:         float           = field(default=0.99,   cast=flt_rng(0, 1))                              # used
+    cnn_explore_mutation:     str             = field(default='uniform_perturb', choices=CNN_EXPLORE_MUTATIONS)
     # PBT
     pbt_print:                bool            = field(default=False)                                                   # used
     pbt_target_steps:         int             = field(default=15,          cast=int_rng(1, INF))                       # used
     pbt_members:              int             = field(default=25,          cast=int_rng(1, INF))                       # used
     pbt_members_ready_after:  int             = field(default=2,           cast=int_rng(1, INF))                       # used
+    pbt_members_begin_after:  int             = field(default=1,           cast=int_rng(1, INF))                       # used
     pbt_exploit_strategy:     str             = field(default='ts',        cast=str.lower, choices=STRATEGY_CHOICES)   # used
     pbt_exploit_suggest:      str             = field(default='ran',       cast=str.lower, choices=SUGGEST_CHOICES)    # used
     pbt_disable_exploit:      bool            = field(default=False)                                                   # used
@@ -157,6 +168,7 @@ class ExperimentArgs(Args):
         opts = {k: v for k, v in opts.items() if not k.startswith('suggest_') or k in self._used_suggest_fields}
         opts = {k: v for k, v in opts.items() if not k.startswith('strategy_') or k in self._used_strategy_fields}
         opts = {k: v for k, v in opts.items() if not k.startswith('cnn_') or k in self._used_cnn_fields}
+        opts = {k: v for k, v in opts.items() if not k.startswith('explore_mutation') or k in self._used_cnn_fields}
         return opts
 
     # >>> COMPUTED VARIABLES <<< #
@@ -238,6 +250,39 @@ class ExperimentArgs(Args):
             suggester=self.make_suggest(),
         )
 
+    def make_cnn_mutations(self) -> dict:
+        u = self._use_cnn_field
+        mutation, lm, lM, mm, mM = u('cnn_explore_mutation'), u('cnn_lr_min'), u('cnn_lr_max'), u('cnn_momentum_min'), u('cnn_momentum_max')
+        if mutation == 'uniform_perturb':
+            mutations = {
+                'optimizer_options/lr': ('uniform_perturb', 0.5, 1.8, lm, lM),
+                'optimizer_options/momentum': ('uniform_perturb', 0.5, 2.00, mm, mM),
+            }
+        elif mutation == 'perturb':
+            mutations = {
+                'optimizer_options/lr': ('perturb', 0.8, 1.2, lm, lM),
+                'optimizer_options/momentum': ('perturb', 0.8, 1.2, mm, mM),
+            }
+        elif mutation == 'ratio_normal':
+            d = 0.0000001
+            mutations = {
+                'optimizer_options/lr': ('normal_explore_dual_offset', lm, lM, 0.9, 0.75, (lm + d, lM - d)),
+                'optimizer_options/momentum': ('normal_explore_dual_offset', mm, mM, 0.9, 0.75, (mm + d, mM - d)),
+            }
+        elif mutation == 'uniform':
+            mutations = {
+                'optimizer_options/lr': ('uniform', lm, lM),
+                'optimizer_options/momentum': ('uniform', mm, mM),
+            }
+        elif mutation == 'normal':
+            mutations = {
+                'optimizer_options/lr': ('normal_explore', 0.1, lm, lM),
+                'optimizer_options/momentum': ('normal_explore', 0.1, mm, mM),
+            }
+        else:
+            raise KeyError(f'cnn_explore_mutation: {self.cnn_explore_mutation} not yet supported')
+        return mutations
+
     def make_member(self):
         if self.experiment_type == 'toy':
             from tsucb.pbt.examples.pbt_paper_toy_example import ToyMember, ToyHyperParams
@@ -255,10 +300,7 @@ class ExperimentArgs(Args):
                         lr=random_log_uniform(u('cnn_lr_min'), u('cnn_lr_max')),
                         momentum=random_uniform(u('cnn_momentum_min'), u('cnn_momentum_max')),
                     ),
-                    mutations={
-                        'optimizer_options/lr':       ('uniform_perturb', 0.5,  1.8, u('cnn_lr_min'), u('cnn_lr_max')),              # eg. 0.8 < 1/1.2  shifts exploration towards getting smaller
-                        'optimizer_options/momentum': ('uniform_perturb', 0.5, 2.00, u('cnn_momentum_min'), u('cnn_momentum_max')),  #     0.8 = 1/1.25 is balanced
-                    },
+                    mutations=self.make_cnn_mutations(),
                     train_images_per_step=60000//u('cnn_steps_per_epoch'),
                     batch_size=u('cnn_batch_size'),
                     use_gpu=not u('cnn_use_cpu'),
@@ -278,6 +320,7 @@ class ExperimentArgs(Args):
             members=self.make_members(),
             exploiter=self.make_exploiter(),
             member_options=dict(
+                steps_till_begin=self.pbt_members_begin_after,
                 steps_till_ready=self.pbt_members_ready_after,
                 debug=self.debug,
                 warn_exploit_self=True,

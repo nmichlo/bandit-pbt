@@ -8,7 +8,7 @@ import seaborn as sns
 import pandas as pd
 
 from tsucb.helper import util, defaults
-from tsucb.pbt.examples.pbt_local_mnist_example import uniform_perturb, perturb, normal_explore
+from tsucb.pbt.examples.pbt_local_mnist_example import uniform_perturb, perturb, normal_explore, normal_explore_radius, normal_explore_dual_radius, normal_explore_offset, normal_explore_dual_offset
 from tsucb.pbt.strategies import *
 from tsucb.pbt.pbt import Member, Population
 
@@ -57,16 +57,22 @@ class ToyMember(Member):
         """perturb hyper-parameters with noise from a normal distribution"""
         s = population.member_options.get('exploration_scale', 0.1)
 
-        return ToyHyperParams(
+        params = ToyHyperParams(
+            # np.array([
+            #     normal_explore_dual_offset(self._h.coef[0], 0, 1, percent_in_radius=0.9, scale=0.75, bounds=(0.000001, 0.999999)),
+            #     normal_explore_dual_offset(self._h.coef[1], 0, 1, percent_in_radius=0.9, scale=0.75, bounds=(0.000001, 0.999999)),
+            # ]),
+            # normal_explore_dual_offset(self._h.alpha, 0, 1, percent_in_radius=0.9, scale=0.75, bounds=(0.000001, 0.999999)),
             normal_explore(self._h.coef, s, 0, 1),
             normal_explore(self._h.alpha, s, 0, 1),
-            # uniform_perturb(self._h.coef, (s-1), 1/(s-1), 0, 1),
-            # uniform_perturb(self._h.alpha, (s-1), 1/(s-1), 0, 1),
+            # perturb(self._h.coef, (s-1), 1/(s-1), 0, 1),
+            # perturb(self._h.alpha, (s-1), 1/(s-1), 0, 1),
             # np.clip(np.random.normal(self._h.coef, s), 0, 1),
             # np.clip(np.random.normal(self._h.alpha, s), 0, 1),
             # self._h.coef + np.random.randn(*self._h.coef.shape) * s,
             # abs(self._h.alpha + np.random.randn() * s),
         )
+        return params
 
     @property
     def mutable_str(self) -> str:
@@ -157,7 +163,9 @@ def make_plot(ax_col, options, exploiter, steps=200, title=None, converge_score=
 
 def run_dual_test():
     options = {
-        "steps": 10,
+        "steps": 20,
+
+        "steps_till_begin": 1,
         "steps_till_ready": 2,
 
         "debug": False,
@@ -165,15 +173,15 @@ def run_dual_test():
         "exploit_copies_h": False,  # must be False for toy example to be valid
 
         # custom
-        "repeats": 500,
+        "repeats": 10,
         "exploration_scale": 0.25,
         "population_size": 50,
         "print_scores": False,
 
         # redo
-        'LOAD': True,
+        'LOAD': False,
         'SAVE': False,
-        'SAVE_GRAPHS': True,
+        'SAVE_GRAPHS': False,
     }
 
     make_exploit_strategy = lambda: ExploitStrategyTruncationSelection()
@@ -185,22 +193,22 @@ def run_dual_test():
         (dict(Exploiter='TS Greedy',               Suggest='greedy',  Epsilon=True,  Random=True),  lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestGreedy())),
     ]
     exploiters_greedy = [
-        (dict(Exploiter='TS ε-Greedy (ε=0.2)',   Suggest='uniform', Epsilon=True,  Random=True),  lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonGreedy(epsilon=0.2))),
+        # (dict(Exploiter='TS ε-Greedy (ε=0.2)',   Suggest='uniform', Epsilon=True,  Random=True),  lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonGreedy(epsilon=0.2))),
         (dict(Exploiter='TS ε-Greedy (ε=0.4)',   Suggest='uniform', Epsilon=True,  Random=True),  lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonGreedy(epsilon=0.4))),
-        (dict(Exploiter='TS ε-Greedy (ε=0.6)',   Suggest='uniform', Epsilon=True,  Random=True),  lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonGreedy(epsilon=0.6))),
+        # (dict(Exploiter='TS ε-Greedy (ε=0.6)',   Suggest='uniform', Epsilon=True,  Random=True),  lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonGreedy(epsilon=0.6))),
         (dict(Exploiter='TS ε-Greedy (ε=0.8)',   Suggest='uniform', Epsilon=True,  Random=True),  lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestEpsilonGreedy(epsilon=0.8))),
     ]
     exploiters_softmax = [
         (dict(Exploiter='TS Softmax (τ=0.1)',    Suggest='softmax', Epsilon=False, Random=True),  lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestSoftmax(temperature=0.1))),
-        (dict(Exploiter='TS Softmax (τ=0.5)',    Suggest='softmax', Epsilon=False, Random=True),  lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestSoftmax(temperature=0.5))),
+        # (dict(Exploiter='TS Softmax (τ=0.5)',    Suggest='softmax', Epsilon=False, Random=True),  lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestSoftmax(temperature=0.5))),
         (dict(Exploiter='TS Softmax (τ=1.0)',    Suggest='softmax', Epsilon=False, Random=True),  lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestSoftmax(temperature=1.0))),
-        (dict(Exploiter='TS Softmax (τ=10.0)',    Suggest='softmax', Epsilon=False, Random=True),  lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestSoftmax(temperature=10.0))),
+        # (dict(Exploiter='TS Softmax (τ=10.0)',    Suggest='softmax', Epsilon=False, Random=True),  lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestSoftmax(temperature=10.0))),
     ]
     exploiters_ucb = [
-        (dict(Exploiter='TS UCB (c=0.1)',     Suggest='ucb',     Epsilon=False, Random=False), lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=0.1, incr_mode='exploited'))),
+        # (dict(Exploiter='TS UCB (c=0.1)',     Suggest='ucb',     Epsilon=False, Random=False), lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=0.1, incr_mode='exploited'))),
         (dict(Exploiter='TS UCB (c=0.5)',     Suggest='ucb',     Epsilon=False, Random=False), lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=0.5, incr_mode='exploited'))),
         (dict(Exploiter='TS UCB (c=1.0)',     Suggest='ucb',     Epsilon=False, Random=False), lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=1.0, incr_mode='exploited'))),
-        (dict(Exploiter='TS UCB (c=2.0)',     Suggest='ucb',     Epsilon=False, Random=False), lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=2.0, incr_mode='exploited'))),
+        # (dict(Exploiter='TS UCB (c=2.0)',     Suggest='ucb',     Epsilon=False, Random=False), lambda: GeneralisedExploiter(make_exploit_strategy(), SuggestUcb(c=2.0, incr_mode='exploited'))),
         # (dict(Exploiter='TS UCB (c=100, S)',     Suggest='ucb',     Epsilon=False, Random=False), lambda: OrigExploitUcb(c=0.00001, normalise_mode='none')),
         # (dict(Exploiter='TS UCB (c=100, P)',     Suggest='ucb',     Epsilon=False, Random=False), lambda: OrigExploitUcb(c=1, normalise_mode='population')),
         # (dict(Exploiter='TS UCB (c=100, C)',     Suggest='ucb',     Epsilon=False, Random=False), lambda: OrigExploitUcb(c=1, normalise_mode='none')),
@@ -250,22 +258,22 @@ def run_dual_test():
             for e, v in zip(xpltrs, sns.light_palette(color, len(xpltrs)+1)[1:])
         })
 
-    for i, (name, xpltrs) in enumerate([
-        ('e-greedy', exploiters_default + exploiters_greedy),
-        ('softmax', exploiters_default + exploiters_softmax),
-        ('ucb', exploiters_default + exploiters_ucb),
-    ]):
-        keys = {e[0]['Exploiter'] for e in xpltrs}
-        data = aggregated.loc[aggregated['Exploiter'].isin(keys)]
-        # PLOT
-        fig, ax = plt.subplots(figsize=(6*7/6, 2.5*7/6))
-        ax.xaxis.set_major_locator(plticker.MultipleLocator(base=1.0))
-        plt.xlim((2, 6))
-        plt.ylim((0.2, 1.2))
-        sns.lineplot(x="Step", y="Score", data=data, hue="Exploiter", palette=palette)
-        if options['SAVE_GRAPHS']:
-            plt.savefig(f'toy_results_{name}.png', dpi=400, bbox_inches="tight")
-        plt.show()
+    # for i, (name, xpltrs) in enumerate([
+    #     ('e-greedy', exploiters_default + exploiters_greedy),
+    #     ('softmax', exploiters_default + exploiters_softmax),
+    #     ('ucb', exploiters_default + exploiters_ucb),
+    # ]):
+    #     keys = {e[0]['Exploiter'] for e in xpltrs}
+    #     data = aggregated.loc[aggregated['Exploiter'].isin(keys)]
+    #     # PLOT
+    #     fig, ax = plt.subplots(figsize=(6*7/6, 2.5*7/6))
+    #     ax.xaxis.set_major_locator(plticker.MultipleLocator(base=1.0))
+    #     plt.xlim((4, 6))
+    #     plt.ylim((0.9, 1.2))
+    #     sns.lineplot(x="Step", y="Score", data=data, hue="Exploiter", palette=palette)
+    #     if options['SAVE_GRAPHS']:
+    #         plt.savefig(f'toy_results_{name}.png', dpi=400, bbox_inches="tight")
+    #     plt.show()
 
     for i, (name, xpltrs) in enumerate([
         ('all', exploiters)
@@ -273,10 +281,10 @@ def run_dual_test():
         keys = {e[0]['Exploiter'] for e in xpltrs}
         data = aggregated.loc[aggregated['Exploiter'].isin(keys)]
         # PLOT
-        fig, ax = plt.subplots(figsize=(6*7/6, 4*7/6))
+        fig, ax = plt.subplots(figsize=(6*7/6, 3.55*7/6))
         ax.xaxis.set_major_locator(plticker.MultipleLocator(base=1.0))
-        plt.xlim((2, 6))
-        plt.ylim((0.2, 1.2))
+        # plt.xlim((4, 6))
+        # plt.ylim((0.9, 1.175))
         sns.lineplot(x="Step", y="Score", data=data, hue="Exploiter", palette=palette)
         if options['SAVE_GRAPHS']:
             plt.savefig(f'toy_results_{name}.png', dpi=400, bbox_inches="tight")

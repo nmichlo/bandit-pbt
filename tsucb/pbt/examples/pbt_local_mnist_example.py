@@ -27,6 +27,7 @@ from tsucb.helper.torch.trainable import TorchTrainable
 from tsucb.helper import util
 from tsucb.pbt.pbt import Member, Population, IExploiter, Exploiter
 from tsucb.pbt.strategies import *
+from scipy.special import erfinv
 
 
 # ========================================================================= #
@@ -47,6 +48,48 @@ def random_log_uniform(a, b):
 # ========================================================================= #
 # MUTATIONS                                                                 #
 # ========================================================================= #
+
+def normal_explore_radius(center, radius, percent_in_radius, bounds):
+    """
+    :param center: mean of the normal distribution
+    :param radius: distance from the mean
+    :param percent_in_radius: percentage of values that fall in the radius from the mean
+    :return:
+    """
+    assert isinstance(center, (int, float))
+    assert isinstance(radius, (int, float))
+    assert radius > 0
+    assert isinstance(percent_in_radius, (int, float))
+    assert bounds is None or (isinstance(bounds, tuple) and len(bounds) == 2)
+
+    t = 2 ** 0.5 * erfinv(percent_in_radius)
+    val = np.random.normal(center, radius / t)
+    if bounds:
+        val = np.clip(val, *bounds)
+    return val
+
+def normal_explore_offset(center, lower_target, percent_in_radius, scale, bounds):
+    return normal_explore_radius(center, (center - lower_target) * scale, percent_in_radius=percent_in_radius, bounds=bounds)
+
+def normal_explore_dual_radius(center, radius_a, radius_b, percent_in_radius, bounds):
+    assert isinstance(center, (int, float))
+    assert isinstance(radius_a, (int, float))
+    assert radius_a > 0
+    assert isinstance(radius_b, (int, float))
+    assert radius_b > 0
+    assert isinstance(percent_in_radius, (int, float))
+    assert bounds is None or (isinstance(bounds, tuple) and len(bounds) == 2)
+
+    val, lower = center, np.random.rand() < 0.5
+    while (not lower and val >= center) or (lower and val <= center):
+        val = normal_explore_radius(center, radius_a if lower else radius_b, percent_in_radius, None)
+    if bounds:
+        val = np.clip(val, *bounds)
+    return val
+
+def normal_explore_dual_offset(center, lower_target, upper_target, percent_in_radius, scale, bounds):
+    return normal_explore_dual_radius(center, (center - lower_target) * scale, (upper_target - center) * scale, percent_in_radius=percent_in_radius, bounds=bounds)
+
 
 def normal_explore(value, scale, min, max):
     val = np.random.normal(value, scale)
@@ -92,6 +135,11 @@ MUTATIONS = {
     'select': select,
     'select_near': select_near,
     'uniform': uniform,
+
+    'normal_explore_radius': normal_explore_radius,
+    'normal_explore_offset': normal_explore_offset,
+    'normal_explore_dual_radius': normal_explore_dual_radius,
+    'normal_explore_dual_offset': normal_explore_dual_offset,
 }
 
 
@@ -216,6 +264,7 @@ def main():
 
     population_options = dict(
         members=15,
+        steps_till_begin=1,
         steps_till_ready=2,
         debug=False,
         warn_exploit_self=True,
