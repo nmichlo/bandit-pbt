@@ -1,5 +1,6 @@
-# improving-pbt
-My research on improving Population Based Training.
+# bandit-pbt
+
+My honours research on improving Population Based Training using bandit based methods.
 
 
 ## My Notes:
